@@ -1,0 +1,35 @@
+
+@baseUrl = http://127.0.0.1:8000/api
+@archivoId = 1
+
+###
+# =============================================
+# 1. Obtener TODOS los archivos
+# =============================================
+GET {{baseUrl}}/archivos/
+
+###
+# =============================================
+# 2. Buscar archivos por NOMBRE
+# =============================================
+GET {{baseUrl}}/archivos/?nombre=Informe2_Julio_2025.pdf
+
+###
+# =============================================
+# 3. Obtener UN archivo por su ID
+# =============================================
+GET {{baseUrl}}/archivos/{{archivoId}}/
+
+###
+# =============================================
+# 4. CREAR un nuevo archivo (POST)
+# =============================================
+# Registra un nuevo archivo en la base de datos.
+POST {{baseUrl}}/archivos/
+Content-Type: application/json
+
+{
+    "Nombre": "Informe2_Julio_2025.pdf",
+    "URLPublica": "https://example.com/ruta/al/pdf/Informe_Julio_2025.pdf"
+}
+

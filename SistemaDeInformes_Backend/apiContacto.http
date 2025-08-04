@@ -1,0 +1,73 @@
+# api.http
+# Archivo para probar los endpoints de la API de Contactos.
+# Necesitas la extensión "REST Client" en Visual Studio Code.
+
+# --- Variables ---
+@baseUrl = http://127.0.0.1:8000/api
+@contactoId = 1
+
+###
+# =============================================
+# 1. ENDPOINTS DE BÚSQUEDA Y LISTADO (GET)
+# =============================================
+
+# A. Obtener TODOS los contactos ACTIVOS (comportamiento por defecto)
+GET {{baseUrl}}/contactos/
+
+###
+# B. Buscar contactos por NOMBRE (parcial)
+GET {{baseUrl}}/contactos/?nombre=Araya
+
+###
+# C. Buscar un contacto por TELEFONO (exacto)
+GET {{baseUrl}}/contactos/?telefono=50687683425
+
+###
+# D. Buscar un contacto por CORREO (exacto)
+GET {{baseUrl}}/contactos/?correo=arayaagueroa@gmail.com
+
+
+###
+# E. Obtener TODOS los contactos (activos e inactivos)
+GET {{baseUrl}}/contactos/?estado=todos
+
+###
+# F. Obtener solo los contactos INACTIVOS
+GET {{baseUrl}}/contactos/?estado=inactivos
+
+###
+# =============================================
+# 2. ENDPOINTS DE DETALLE (GET, PUT, DELETE)
+# =============================================
+
+# Obtener UN contacto por su ID
+GET {{baseUrl}}/contactos/18/
+
+###
+# ACTUALIZAR un contacto existente (PUT)
+PUT {{baseUrl}}/contactos/{{contactoId}}/
+Content-Type: application/json
+
+{
+    "Nombre": "Andres",
+    "Telefono": "50687683425",
+    "CorreoElectronico": "arayaagueroa@gmail.com",
+    "Estado": 1
+}
+
+###
+# ELIMINAR (lógicamente) un contacto (DELETE)
+DELETE {{baseUrl}}/contactos/{{contactoId}}/
+
+###
+# =============================================
+# 3. ENDPOINT DE CREACIÓN (POST)
+# =============================================
+POST {{baseUrl}}/contactos/
+Content-Type: application/json
+
+{
+    "Nombre": "Nuevo Contacto Desde API",
+    "Telefono": "5069999888",
+    "CorreoElectronico": "nuevo.api@example.com"
+}
