@@ -42,6 +42,8 @@ class ContactoListCreateView(APIView):
                 contactos = ContactoService.obtener_todos_contactos()
             elif estado == 'inactivos':
                 contactos = ContactoService.obtener_contactos_inactivos()
+            elif estado == 'gerenciales':
+                contactos = ContactoService.obtener_contactos_gerenciales()
             else: # Por defecto o si estado == 'activos'
                 contactos = ContactoService.obtener_contactos_activos()
             

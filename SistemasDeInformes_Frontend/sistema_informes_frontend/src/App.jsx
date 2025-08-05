@@ -1,35 +1,32 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// src/App.jsx  <-- Este es el único archivo 'App' que necesitas
+
+import './App.css';
+import { Routes, Route } from 'react-router-dom';
+
+// --- Importa tus componentes/páginas aquí ---
+import ContactsPage from './components/ContactsPage';
+// import ProtectedRoute from './components/ProtectedRoute'; // Descomenta esto cuando lo necesites
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Routes>
+      {/* Ruta para la página principal */}
+      <Route path="/" element={<div>Página de Inicio</div>} />
+
+      {/* --- Tu ruta de contactos --- */}
+      {/* Para depurar, la dejamos fuera del ProtectedRoute por ahora */}
+      <Route path="/contacts" element={<ContactsPage />} />
+      <Route path="/ReportPDF" element={<ContactsPage />} />
+
+      {/* Aquí irían tus otras rutas. Ejemplo con ruta protegida: */}
+      {/*
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<div>Dashboard Protegido</div>} />
+      </Route>
+      */}
+
+    </Routes>
+  );
 }
 
-export default App
+export default App;

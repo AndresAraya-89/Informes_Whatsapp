@@ -105,6 +105,13 @@ class ContactoService:
         with connection.cursor() as cursor:
             cursor.execute("EXEC sp_ObtenerContactosInactivos")
             return dictfetchall(cursor)
+        
+    @staticmethod
+    def obtener_contactos_gerenciales():
+        with connection.cursor() as cursor:
+            cursor.execute("EXEC sp_ObtenerContactosGerenciales")
+            return dictfetchall(cursor)
+    
 
 
 class ArchivoService:

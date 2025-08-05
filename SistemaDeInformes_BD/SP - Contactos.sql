@@ -2,9 +2,9 @@ USE SistemasDeInformes
 GO
 
 -- =============================================
--- PROCEDIMIENTO UNIFICADO PARA CREAR Y VALIDAR CONTACTOS
+-- SCRIPT CORREGIDO PARA EL PROCEDIMIENTO ALMACENADO
 -- =============================================
-CREATE PROCEDURE sp_CrearContacto_ConValidacion
+ALTER PROCEDURE [dbo].[sp_CrearContacto_ConValidacion]
     @Nombre VARCHAR(100),
     @Telefono VARCHAR(100),
     @CorreoElectronico VARCHAR(100) = NULL
@@ -12,33 +12,44 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1. Verificar si el teléfono ya existe
+    -- 1. Verificar si el teléfono ya existe (esto está bien)
     IF EXISTS (SELECT 1 FROM Contacto WHERE Telefono = @Telefono)
     BEGIN
         SELECT 'CONFLICT' AS Status, 'El número de teléfono ya existe.' AS Message, NULL AS NewId;
         RETURN;
     END
 
-    -- 2. Verificar si el correo ya existe
+    -- 2. Verificar si el correo ya existe (esto está bien)
     IF @CorreoElectronico IS NOT NULL AND @CorreoElectronico != '' AND EXISTS (SELECT 1 FROM Contacto WHERE CorreoElectronico = @CorreoElectronico)
     BEGIN
         SELECT 'CONFLICT' AS Status, 'El correo electrónico ya existe.' AS Message, NULL AS NewId;
         RETURN;
     END
 
-    -- 3. Si no hay conflictos, insertar el nuevo contacto
+    -- 3. Iniciar la transacción explícitamente antes del TRY
+    BEGIN TRANSACTION;
+
     BEGIN TRY
+        -- Insertar el nuevo contacto
         INSERT INTO Contacto (Nombre, Telefono, CorreoElectronico)
         VALUES (@Nombre, @Telefono, @CorreoElectronico);
         
+        -- Si la inserción es exitosa, confirmar la transacción
+        COMMIT TRANSACTION;
+        
+        -- Devolver mensaje de éxito
         SELECT 'SUCCESS' AS Status, 'Contacto creado exitosamente.' AS Message, SCOPE_IDENTITY() AS NewId;
     END TRY
     BEGIN CATCH
+        -- Si ocurre un error, verificar si hay una transacción abierta y revertirla
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        
+        -- Devolver el mensaje de error de SQL Server
         SELECT 'ERROR' AS Status, ERROR_MESSAGE() AS Message, NULL AS NewId;
     END CATCH
 END
 GO
-
 
 -- =============================================
 -- 2. PROCEDIMIENTO PARA ACTUALIZAR UN CONTACTO EXISTENTE
@@ -156,6 +167,7 @@ BEGIN
 END
 GO
 
+
 -- G. Obtener un contacto por medio de su id
 CREATE OR ALTER PROCEDURE sp_ObtenerContactoPorId
     @Id INT
@@ -168,4 +180,14 @@ END
 GO
 
 
-
+-- H. Obtener todos los contactos gerenciales
+CREATE OR ALTER PROCEDURE sp_ObtenerContactosGerenciales
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT *
+    FROM Contacto
+	WHERE Estado = 2
+    ORDER BY Nombre;
+END
+GO

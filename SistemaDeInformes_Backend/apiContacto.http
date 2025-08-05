@@ -36,6 +36,10 @@ GET {{baseUrl}}/contactos/?estado=todos
 GET {{baseUrl}}/contactos/?estado=inactivos
 
 ###
+# G. Obtener solo los contactos GERENCIALES
+GET {{baseUrl}}/contactos/?estado=gerenciales
+
+###
 # =============================================
 # 2. ENDPOINTS DE DETALLE (GET, PUT, DELETE)
 # =============================================
@@ -67,7 +71,7 @@ POST {{baseUrl}}/contactos/
 Content-Type: application/json
 
 {
-    "Nombre": "Nuevo Contacto Desde API",
-    "Telefono": "5069999888",
-    "CorreoElectronico": "nuevo.api@example.com"
+    "Nombre": "Nuevo Contacto",
+    "Telefono": "5069999891",
+    "CorreoElectronico": "nuev.ai@example.com"
 }

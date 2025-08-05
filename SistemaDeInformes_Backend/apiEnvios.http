@@ -47,7 +47,7 @@ POST {{baseUrl}}/enviar-mensaje-texto/
 Content-Type: application/json
 
 {
-    "id_contacto": 13,
+    "id_contacto": 1,
     "mensaje": "Hola mundo."
 }
 
