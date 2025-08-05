@@ -1,30 +1,24 @@
-// src/App.jsx  <-- Este es el único archivo 'App' que necesitas
+// src/App.jsx
 
 import './App.css';
 import { Routes, Route } from 'react-router-dom';
 
-// --- Importa tus componentes/páginas aquí ---
-import ContactsPage from './components/ContactsPage';
-// import ProtectedRoute from './components/ProtectedRoute'; // Descomenta esto cuando lo necesites
+// Importa los componentes de las páginas
+import GenerarReporte from './components/GenerarReporte.jsx';
+import ArchivoPDF from './components/ArchivoPDF.jsx';
+import ContactsPage from './components/ContactsPage.jsx';
 
 function App() {
   return (
     <Routes>
-      {/* Ruta para la página principal */}
-      <Route path="/" element={<div>Página de Inicio</div>} />
+      {/* La página principal ahora es el formulario para generar reportes */}
+      <Route path="/" element={<GenerarReporte />} />
 
-      {/* --- Tu ruta de contactos --- */}
-      {/* Para depurar, la dejamos fuera del ProtectedRoute por ahora */}
+      {/* Ruta para la previsualización y generación del PDF */}
+      <Route path="/archivo-pdf" element={<ArchivoPDF />} />
+
+      {/* Ruta para la gestión de contactos (sigue disponible) */}
       <Route path="/contacts" element={<ContactsPage />} />
-      <Route path="/ReportPDF" element={<ContactsPage />} />
-
-      {/* Aquí irían tus otras rutas. Ejemplo con ruta protegida: */}
-      {/*
-      <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<div>Dashboard Protegido</div>} />
-      </Route>
-      */}
-
     </Routes>
   );
 }
