@@ -101,7 +101,11 @@ CREATE OR ALTER PROCEDURE sp_BuscarContactoPorNombre
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT	
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
     WHERE Nombre LIKE '%' + @Nombre + '%' AND Estado = 1;
 END
@@ -113,7 +117,11 @@ CREATE OR ALTER PROCEDURE sp_BuscarContactoPorTelefono
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT 
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
     WHERE Telefono = @Telefono;
 END
@@ -125,7 +133,11 @@ CREATE OR ALTER PROCEDURE sp_BuscarContactoPorCorreo
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT	
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
     WHERE CorreoElectronico = @CorreoElectronico;
 END
@@ -137,7 +149,11 @@ CREATE OR ALTER PROCEDURE sp_ObtenerContactosActivos
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT 
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
     WHERE Estado = 1
     ORDER BY Nombre;
@@ -149,7 +165,11 @@ CREATE OR ALTER PROCEDURE sp_ObtenerContactosActivosInactivos
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT 
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
     ORDER BY Nombre;
 END
@@ -160,7 +180,11 @@ CREATE OR ALTER PROCEDURE sp_ObtenerContactosInactivos
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT 
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
 	WHERE Estado = 0
     ORDER BY Nombre;
@@ -173,7 +197,11 @@ CREATE OR ALTER PROCEDURE sp_ObtenerContactoPorId
     @Id INT
 AS
 BEGIN
-    SELECT *
+    SELECT 
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
     WHERE [IdContacto] = @Id;
 END
@@ -185,9 +213,17 @@ CREATE OR ALTER PROCEDURE sp_ObtenerContactosGerenciales
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT *
+    SELECT 
+		IdContacto,
+        Nombre,
+        SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+        Estado
     FROM Contacto
 	WHERE Estado = 2
     ORDER BY Nombre;
 END
 GO
+
+
+use SistemasDeInformes
+EXEC sp_ObtenerContactosGerenciales;

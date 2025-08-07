@@ -40,5 +40,19 @@
         "http://127.0.0.1:8000/*"
       ]
     }
+  },
+  "allowlist": {
+    "all": false,
+    "fs": {
+      "all": false,
+      "writeFile": true,
+      "writeBinaryFile": true,
+      "scope": [
+        "$DESKTOP/SistemaIncidentes/*"
+      ]
+    },
+    "path": {
+      "all": true
+    }
   }
 }

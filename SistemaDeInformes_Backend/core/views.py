@@ -3,6 +3,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .services import ArchivoService, ContactoService, EnvioService, InformeService
+import base64
+from .drive_service import DriveService # Importamos nuestro nuevo servicio
+
 
 # =============================================
 # VISTAS PARA CONTACTOS
@@ -251,4 +254,43 @@ class EnviarMensajeTextView(APIView):
                 return Response(resultado, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'status': 'error', 'message': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UploadToDriveAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        """
+        Recibe un PDF en Base64 desde el frontend, lo sube a Google Drive
+        y devuelve la URL pública.
+        """
+        pdf_base64 = request.data.get('pdf_data')
+        file_name = request.data.get('file_name')
+
+        if not pdf_base64 or not file_name:
+            return Response(
+                {"error": "Faltan los datos 'pdf_data' o 'file_name'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Decodificamos el string Base64 para obtener los datos binarios del PDF
+            pdf_binary_data = base64.b64decode(pdf_base64)
+
+            # Llamamos a nuestro servicio para que haga el trabajo pesado
+            drive_url = DriveService.upload_pdf(pdf_binary_data, file_name)
+
+            if drive_url:
+                # Si todo sale bien, devolvemos la URL al frontend
+                return Response({"drive_url": drive_url}, status=status.HTTP_201_CREATED)
+            else:
+                return Response(
+                    {"error": "No se pudo obtener la URL del archivo subido."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Exception as e:
+            return Response(
+                {"error": f"Ocurrió un error en el servidor: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 

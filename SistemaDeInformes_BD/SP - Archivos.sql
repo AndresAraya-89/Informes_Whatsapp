@@ -5,31 +5,23 @@ GO
 -- 1. PROCEDIMIENTO PARA CREAR UN NUEVO ARCHIVO
 -- =============================================
 CREATE OR ALTER PROCEDURE sp_CrearArchivo
-    @Nombre VARCHAR(100),
-    @URLPublica VARCHAR(500)
 AS
 BEGIN
-    -- Previene que se devuelvan los recuentos de filas afectadas
-    SET NOCOUNT ON;
+    DECLARE @NuevoId INT;
+    DECLARE @NombreGenerado VARCHAR(100);
+	DECLARE @URLPublica VARCHAR(500) = 'URL_TEMP'
 
-    -- Bloque de manejo de errores
-    BEGIN TRY
-        INSERT INTO Archivo (Nombre, URLPublica)
-        VALUES (@Nombre, @URLPublica);
-        
-        -- Devuelve el ID del archivo recién creado
-        SELECT SCOPE_IDENTITY() AS IdArchivoCreado;
-    END TRY
-    BEGIN CATCH
-        -- Devuelve información del error si la inserción falla (ej. por nombre duplicado)
-        SELECT 
-            ERROR_NUMBER() AS ErrorNumber,
-            ERROR_MESSAGE() AS ErrorMessage;
-    END CATCH
+
+    INSERT INTO Archivo (Nombre, URLPublica)
+    VALUES ('TEMP', @URLPublica);
+    SET @NuevoId = SCOPE_IDENTITY();
+
+    SET @NombreGenerado = CAST(@NuevoId AS VARCHAR) + '_ReporteInsidente_SIRYM';
+
+    UPDATE Archivo
+    SET Nombre = @NombreGenerado
+    WHERE IdArchivo = @NuevoId;
 END
-GO
-
-PRINT 'Procedimiento sp_CrearArchivo creado exitosamente.';
 GO
 
 -- =============================================
