@@ -1,18 +1,18 @@
 # core/drive_service.py
+# VERSIÓN FINAL Y CORRECTA PARA AUTENTICACIÓN PERSONAL (OAUTH 2.0)
 
 import os
 import io
 import pickle
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-# --- IMPORTACIÓN CORREGIDA ---
-# Importamos el objeto 'Request' correcto desde la librería de autenticación de Google
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.errors import HttpError
 from django.conf import settings
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN PARA AUTENTICACIÓN PERSONAL ---
 CLIENT_SECRET_FILE = os.path.join(settings.BASE_DIR, 'client_secret.json')
 TOKEN_FILE = os.path.join(settings.BASE_DIR, 'token.pickle')
 SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -48,8 +48,6 @@ class DriveService:
                 creds = pickle.load(token)
         
         if creds and creds.expired and creds.refresh_token:
-            # --- LÍNEA CORREGIDA ---
-            # Usamos el objeto 'GoogleAuthRequest' que importamos
             creds.refresh(GoogleAuthRequest())
             with open(TOKEN_FILE, 'wb') as token:
                 pickle.dump(creds, token)
@@ -69,18 +67,25 @@ class DriveService:
             file_metadata = {'name': file_name, 'parents': [DRIVE_FOLDER_ID]}
             media = MediaIoBaseUpload(io.BytesIO(pdf_binary_data), mimetype='application/pdf', resumable=True)
 
-            file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+            file = service.files().create(
+                body=file_metadata, 
+                media_body=media, 
+                fields='id, webViewLink'
+            ).execute()
 
             file_id = file.get('id')
             service.permissions().create(fileId=file_id, body={'role': 'reader', 'type': 'anyone'}).execute()
 
-            return file.get('webViewLink')
+            # --- CORRECCIÓN AQUÍ ---
+            # Devolvemos un diccionario con el ID y la URL, no solo la URL.
+            return {'file_id': file.get('id'), 'webViewLink': file.get('webViewLink')}
+
+        except HttpError as error:
+            print(f"Ocurrió un error de la API de Google: {error}")
+            raise Exception(f"Error de la API de Google: {error.content.decode('utf-8')}")
         except Exception as e:
-            print(f"Ocurrió un error al subir a Google Drive: {e}")
+            print(f"Ocurrió un error DETALLADO al subir a Google Drive: {e}")
             raise e
-
-
-# --- FUNCIÓN PARA RENOMBRAR ---
     @staticmethod
     def rename_file(file_id, new_name):
         """
@@ -93,10 +98,8 @@ class DriveService:
         try:
             service = build('drive', 'v3', credentials=creds)
             
-            # Metadatos con el nuevo nombre
             file_metadata = {'name': new_name}
             
-            # Llamamos a la API para actualizar el archivo
             service.files().update(
                 fileId=file_id,
                 body=file_metadata

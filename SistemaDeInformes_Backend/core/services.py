@@ -125,11 +125,16 @@ class ArchivoService:
         Devuelve un diccionario con el nuevo ID y el nombre generado.
         """
         with connection.cursor() as cursor:
-            # El SP ya no necesita el parámetro de nombre
+            # El SP ya no necesita el parámetro de nombre, solo la URL
             cursor.execute("EXEC sp_CrearArchivo @URLPublica=%s", [url_publica])
-            # Usamos dictfetchone para leer la fila que devuelve el SP
+            
+            # --- CORRECCIÓN AQUÍ ---
+            # Usamos dictfetchone para leer la fila completa que devuelve el SP
             resultado = dictfetchone(cursor) 
+            
             return resultado # Devuelve {'IdArchivo': 123, 'Nombre': '123_Reporte...'}
+
+    
 
     @staticmethod
     def obtener_archivo_por_id(id_archivo):

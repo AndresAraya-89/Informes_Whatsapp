@@ -1,5 +1,5 @@
 // src/components/ArchivoPDF.jsx
-// VERSIÓN FINAL CON AUTORIZACIÓN PERSONAL (OAUTH 2.0) Y LÓGICA DE REINTENTO CORREGIDA
+// VERSIÓN FINAL CON LÓGICA DE SUBIDA AUTOMÁTICA Y DISEÑO VISUAL RESTAURADO
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCloudUploadAlt, faCheckCircle, faExclamationTriangle, faCopy, faKey, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 
 import archiveService from '../services/archiveService';
-import Logo from '../assets/Logo.png';
+import Logo from '../assets/Logo.png'; // Asegúrate de que la ruta al logo es correcta
 
 function ArchivoPDF() {
     const location = useLocation();
@@ -20,19 +20,16 @@ function ArchivoPDF() {
 
     const [isProcessing, setIsProcessing] = useState(true);
     const [processStatus, setProcessStatus] = useState({
-        status: 'processing', // 'processing', 'success', 'error', 'authorization_required', 'info'
+        status: 'processing',
         message: 'Generando y guardando informe en Google Drive...',
         url: ''
     });
 
-    // --- LÓGICA DE GUARDADO REFACTORIZADA ---
-    // Se extrae la lógica a una función useCallback para poder llamarla desde múltiples lugares.
     const generateAndUpload = useCallback(async () => {
         setIsProcessing(true);
         setProcessStatus({ status: 'processing', message: 'Iniciando subida a Google Drive...', url: '' });
 
         const input = reportTemplateRef.current;
-        // Esperamos un momento para que el DOM se renderice completamente
         await new Promise(resolve => setTimeout(resolve, 500));
 
         if (!input || !reportData) {
@@ -65,22 +62,20 @@ function ArchivoPDF() {
                 setProcessStatus({
                     status: 'authorization_required',
                     message: 'Se necesita permiso para acceder a Google Drive. Por favor, autoriza la aplicación.',
-                    url: ''
                 });
             } else {
                 console.error("Error al guardar el informe:", error);
                 const errorMessage = error.response?.data?.error || error.message || "Ocurrió un error desconocido.";
-                setProcessStatus({ status: 'error', message: `Fallo al guardar: ${errorMessage}`, url: '' });
+                setProcessStatus({ status: 'error', message: `Fallo al guardar: ${errorMessage}` });
             }
         } finally {
             setIsProcessing(false);
         }
-    }, [reportData]); // La función depende de 'reportData' para tener la información correcta
+    }, [reportData]);
 
-    // Este useEffect se ejecuta una sola vez cuando el componente se monta para iniciar el proceso
     useEffect(() => {
         generateAndUpload();
-    }, [generateAndUpload]); // Se ejecuta cuando la función memoizada está lista
+    }, [generateAndUpload]);
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
@@ -91,11 +86,9 @@ function ArchivoPDF() {
         setProcessStatus({
             status: 'info',
             message: 'Una vez que completes la autorización en la nueva pestaña, haz clic en Reintentar.',
-            url: ''
         });
     };
 
-    // La función de reintento ahora simplemente llama a la función principal
     const retryUpload = () => {
         generateAndUpload();
     };
@@ -147,16 +140,100 @@ function ArchivoPDF() {
                 <Button variant="secondary" onClick={() => navigate('/')}> <FontAwesomeIcon icon={faArrowLeft} className="me-2" /> Crear Otro Informe </Button>
             </div>
 
-            {/* La plantilla del PDF se oculta visualmente para no estorbar */}
-            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-                <div ref={reportTemplateRef} style={{ width: '800px', backgroundColor: 'white', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
-                    {/* El contenido de la plantilla del PDF va aquí... */}
-                    <h1>Informe de Incidente</h1>
-                    <p>Fecha: {reportData.fecha}</p>
-                    <p>Lugar: {reportData.lugar}</p>
-                    {/* ...etc... */}
+            {/* --- INICIO DE LA PLANTILLA VISUAL RESTAURADA --- */}
+            <div
+                ref={reportTemplateRef}
+                style={{
+                    maxWidth: '800px',
+                    margin: '0 auto',
+                    backgroundColor: 'white',
+                    padding: '30px',
+                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
+                    fontFamily: 'Arial, sans-serif',
+                    textAlign: 'left',
+                }}
+            >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <img src={Logo} alt="Logo de la empresa" style={{ maxHeight: '80px' }} />
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', textAlign: 'center', flexGrow: 1 }}>
+                        Informe de Incidente
+                    </div>
+                    <div style={{ width: '80px' }}>&nbsp;</div> {/* Espacio para alinear el título */}
+                </div>
+
+                <div style={{ textAlign: 'right', fontStyle: 'italic', marginBottom: '20px' }}>
+                    Aprobado por:<br />
+                    Gerencia General
+                </div>
+
+                {/* Detalles del Incidente */}
+                <div style={{ marginBottom: '20px' }}>
+                    <div style={{ fontWeight: 'bold', marginTop: '15px' }}>
+                        Fecha: {reportData.fecha}
+                    </div>
+
+                    <div style={{ marginBottom: '8px', marginTop: '15px' }}>
+                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Lugar del evento:</span>
+                        {reportData.lugar}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Oficiales en servicio:</span>
+                        {reportData.oficiales}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Tipo de incidente:</span>
+                        {reportData.tipoIncidente}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Datos del o los afectado:</span>
+                        {reportData.afectado}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Número de Cámara:</span>
+                        {reportData.numeroCamara || 'N/A'}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Contacto Seleccionado:</span>
+                        {reportData.contactoSeleccionado || 'N/A'}
+                    </div>
+                </div>
+
+                {/* Narración */}
+                <div style={{ marginTop: '20px', lineHeight: '1.5' }}>
+                    <div style={{ fontWeight: 'bold', marginTop: '15px' }}>Narración de Hecho:</div>
+                    <p style={{ whiteSpace: 'pre-line', textAlign: 'justify' }}>
+                        {reportData.narracion}
+                    </p>
+                </div>
+
+                {/* Anexo */}
+                <div style={{ marginTop: '30px', borderTop: '1px solid #ddd', paddingTop: '20px' }}>
+                    <div style={{ fontWeight: 'bold', marginTop: '15px' }}>Anexo:</div>
+                    {reportData.anexoUrl ? (
+                        <img
+                            src={reportData.anexoUrl}
+                            alt="Incidente del informe"
+                            style={{
+                                maxWidth: '100%',
+                                height: 'auto',
+                                marginTop: '15px',
+                                border: '1px solid #ddd',
+                            }}
+                        />
+                    ) : (
+                        <p>No se adjuntó anexo.</p>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ marginTop: '30px', textAlign: 'right', fontStyle: 'italic', fontSize: '11px' }}>
+                    Teléfono: 8831-4676<br />
+                    Email: sirymcr@gmail.com<br />
+                    Dirección: Limón Urbanización Los Cocos
                 </div>
             </div>
+            {/* --- FIN DE LA PLANTILLA --- */}
         </Container>
     );
 }
