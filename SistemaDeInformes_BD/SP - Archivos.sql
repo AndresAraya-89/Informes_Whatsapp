@@ -5,22 +5,30 @@ GO
 -- 1. PROCEDIMIENTO PARA CREAR UN NUEVO ARCHIVO
 -- =============================================
 CREATE OR ALTER PROCEDURE sp_CrearArchivo
+    @URLPublica VARCHAR(500)
 AS
 BEGIN
+    SET NOCOUNT ON;
+
     DECLARE @NuevoId INT;
     DECLARE @NombreGenerado VARCHAR(100);
-	DECLARE @URLPublica VARCHAR(500) = 'URL_TEMP'
 
-
+    -- Insertar con valores temporales
     INSERT INTO Archivo (Nombre, URLPublica)
     VALUES ('TEMP', @URLPublica);
+    
+    -- Obtener el ID recién creado
     SET @NuevoId = SCOPE_IDENTITY();
 
+    -- Generar el nombre final
     SET @NombreGenerado = CAST(@NuevoId AS VARCHAR) + '_ReporteInsidente_SIRYM';
 
     UPDATE Archivo
     SET Nombre = @NombreGenerado
     WHERE IdArchivo = @NuevoId;
+
+    -- Devolver el ID y el nombre generado en una sola consulta
+    SELECT IdArchivo = @NuevoId, Nombre = @NombreGenerado;
 END
 GO
 
@@ -68,9 +76,6 @@ BEGIN
 END
 GO
 
-PRINT 'Procedimiento sp_ObtenerTodosLosArchivos creado exitosamente.';
-GO
-
 -- =============================================
 -- 4. PROCEDIMIENTO PARA BUSCAR ARCHIVOS POR NOMBRE
 -- =============================================
@@ -92,7 +97,4 @@ BEGIN
     ORDER BY 
         Nombre;
 END
-GO
-
-PRINT 'Procedimiento sp_BuscarArchivoPorNombre creado exitosamente.';
 GO

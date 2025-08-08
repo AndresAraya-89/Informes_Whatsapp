@@ -1,84 +1,109 @@
 # core/drive_service.py
-# NOTA: Este código es correcto, pero depende 100% de que los permisos 
-# en Google Drive estén bien configurados como se describe en el checklist.
 
 import os
 import io
-from google.oauth2 import service_account
+import pickle
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+# --- IMPORTACIÓN CORREGIDA ---
+# Importamos el objeto 'Request' correcto desde la librería de autenticación de Google
+from google.auth.transport.requests import Request as GoogleAuthRequest
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-# --- NUEVA IMPORTACIÓN para manejar errores específicos de la API ---
-from googleapiclient.errors import HttpError
 from django.conf import settings
 
 # --- CONFIGURACIÓN ---
-SERVICE_ACCOUNT_FILE = os.path.join(settings.BASE_DIR, 'service_account.json')
+CLIENT_SECRET_FILE = os.path.join(settings.BASE_DIR, 'client_secret.json')
+TOKEN_FILE = os.path.join(settings.BASE_DIR, 'token.pickle')
 SCOPES = ['https://www.googleapis.com/auth/drive']
 DRIVE_FOLDER_ID = '1DPLZUu9Gg54o9sCuR7jF5EJGUBkZB_Sp' 
 
 class DriveService:
-    _service = None
 
     @staticmethod
-    def _get_service():
-        """Crea y reutiliza una instancia del servicio de la API de Google Drive."""
-        if DriveService._service is None:
-            try:
-                creds = service_account.Credentials.from_service_account_file(
-                    SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-                
-                # Usamos el método de construcción simplificado que es más estable
-                DriveService._service = build('drive', 'v3', credentials=creds, cache_discovery=False)
+    def get_authorization_url():
+        """Genera la URL para que el usuario dé permiso."""
+        flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET_FILE, SCOPES)
+        flow.redirect_uri = 'http://127.0.0.1:8000/api/oauth2callback'
+        auth_url, _ = flow.authorization_url(access_type='offline', prompt='consent')
+        return auth_url
 
-            except Exception as e:
-                print(f"Error al inicializar el servicio de Google: {e}")
-                raise
-        return DriveService._service
+    @staticmethod
+    def exchange_code_for_token(code):
+        """Intercambia el código de autorización por credenciales y las guarda."""
+        flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET_FILE, SCOPES)
+        flow.redirect_uri = 'http://127.0.0.1:8000/api/oauth2callback'
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+        return True
+
+    @staticmethod
+    def _get_credentials():
+        """Carga las credenciales guardadas. Si no existen o son inválidas, devuelve None."""
+        creds = None
+        if os.path.exists(TOKEN_FILE):
+            with open(TOKEN_FILE, 'rb') as token:
+                creds = pickle.load(token)
+        
+        if creds and creds.expired and creds.refresh_token:
+            # --- LÍNEA CORREGIDA ---
+            # Usamos el objeto 'GoogleAuthRequest' que importamos
+            creds.refresh(GoogleAuthRequest())
+            with open(TOKEN_FILE, 'wb') as token:
+                pickle.dump(creds, token)
+        
+        return creds
 
     @staticmethod
     def upload_pdf(pdf_binary_data, file_name):
-        """Sube un archivo PDF a la carpeta especificada en Google Drive."""
+        """Sube un archivo PDF usando las credenciales guardadas."""
+        creds = DriveService._get_credentials()
+        if not creds or not creds.valid:
+            raise Exception("Authorization required")
+
         try:
-            service = DriveService._get_service()
+            service = build('drive', 'v3', credentials=creds)
+            
+            file_metadata = {'name': file_name, 'parents': [DRIVE_FOLDER_ID]}
+            media = MediaIoBaseUpload(io.BytesIO(pdf_binary_data), mimetype='application/pdf', resumable=True)
 
-            file_metadata = {
-                'name': file_name,
-                'parents': [DRIVE_FOLDER_ID]
-            }
-            media = MediaIoBaseUpload(io.BytesIO(pdf_binary_data),
-                                      mimetype='application/pdf',
-                                      resumable=True)
-
-            # El parámetro 'supportsAllDrives=True' es crucial para que la cuenta
-            # de servicio pueda escribir en carpetas que no le pertenecen.
-            file = service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id, webViewLink',
-                supportsAllDrives=True
-            ).execute()
+            file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
 
             file_id = file.get('id')
-            if not file_id:
-                raise Exception("La API de Google no devolvió un ID de archivo.")
+            service.permissions().create(fileId=file_id, body={'role': 'reader', 'type': 'anyone'}).execute()
 
-            # Hacemos el archivo público para que cualquiera con el enlace pueda verlo
-            service.permissions().create(
-                fileId=file_id, 
-                body={'role': 'reader', 'type': 'anyone'},
-                supportsAllDrives=True
-            ).execute()
-
-            print(f"Archivo subido exitosamente. URL: {file.get('webViewLink')}")
             return file.get('webViewLink')
-
-        # --- MANEJO DE ERRORES MEJORADO ---
-        # Capturamos específicamente los errores de la API de Google
-        except HttpError as error:
-            print(f"Ocurrió un error de la API de Google: {error}")
-            # Devolvemos el contenido del error para que la vista lo pueda manejar
-            raise Exception(f"Error de la API de Google: {error.content.decode('utf-8')}")
         except Exception as e:
-            print(f"Ocurrió un error DETALLADO al subir a Google Drive: {e}")
+            print(f"Ocurrió un error al subir a Google Drive: {e}")
             raise e
 
+
+# --- FUNCIÓN PARA RENOMBRAR ---
+    @staticmethod
+    def rename_file(file_id, new_name):
+        """
+        Renombra un archivo existente en Google Drive usando su ID.
+        """
+        creds = DriveService._get_credentials()
+        if not creds or not creds.valid:
+            raise Exception("Authorization required")
+        
+        try:
+            service = build('drive', 'v3', credentials=creds)
+            
+            # Metadatos con el nuevo nombre
+            file_metadata = {'name': new_name}
+            
+            # Llamamos a la API para actualizar el archivo
+            service.files().update(
+                fileId=file_id,
+                body=file_metadata
+            ).execute()
+            
+            print(f"Archivo con ID {file_id} renombrado a '{new_name}'")
+            return True
+        except Exception as e:
+            print(f"Ocurrió un error al renombrar el archivo en Google Drive: {e}")
+            raise e
