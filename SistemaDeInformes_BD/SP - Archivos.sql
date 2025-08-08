@@ -5,31 +5,31 @@ GO
 -- 1. PROCEDIMIENTO PARA CREAR UN NUEVO ARCHIVO
 -- =============================================
 CREATE OR ALTER PROCEDURE sp_CrearArchivo
-    @Nombre VARCHAR(100),
     @URLPublica VARCHAR(500)
 AS
 BEGIN
-    -- Previene que se devuelvan los recuentos de filas afectadas
     SET NOCOUNT ON;
 
-    -- Bloque de manejo de errores
-    BEGIN TRY
-        INSERT INTO Archivo (Nombre, URLPublica)
-        VALUES (@Nombre, @URLPublica);
-        
-        -- Devuelve el ID del archivo recién creado
-        SELECT SCOPE_IDENTITY() AS IdArchivoCreado;
-    END TRY
-    BEGIN CATCH
-        -- Devuelve información del error si la inserción falla (ej. por nombre duplicado)
-        SELECT 
-            ERROR_NUMBER() AS ErrorNumber,
-            ERROR_MESSAGE() AS ErrorMessage;
-    END CATCH
-END
-GO
+    DECLARE @NuevoId INT;
+    DECLARE @NombreGenerado VARCHAR(100);
 
-PRINT 'Procedimiento sp_CrearArchivo creado exitosamente.';
+    -- Insertar con valores temporales
+    INSERT INTO Archivo (Nombre, URLPublica)
+    VALUES ('TEMP', @URLPublica);
+    
+    -- Obtener el ID recién creado
+    SET @NuevoId = SCOPE_IDENTITY();
+
+    -- Generar el nombre final
+    SET @NombreGenerado = CAST(@NuevoId AS VARCHAR) + '_ReporteInsidente_SIRYM';
+
+    UPDATE Archivo
+    SET Nombre = @NombreGenerado
+    WHERE IdArchivo = @NuevoId;
+
+    -- Devolver el ID y el nombre generado en una sola consulta
+    SELECT IdArchivo = @NuevoId, Nombre = @NombreGenerado;
+END
 GO
 
 -- =============================================
@@ -76,9 +76,6 @@ BEGIN
 END
 GO
 
-PRINT 'Procedimiento sp_ObtenerTodosLosArchivos creado exitosamente.';
-GO
-
 -- =============================================
 -- 4. PROCEDIMIENTO PARA BUSCAR ARCHIVOS POR NOMBRE
 -- =============================================
@@ -100,7 +97,4 @@ BEGIN
     ORDER BY 
         Nombre;
 END
-GO
-
-PRINT 'Procedimiento sp_BuscarArchivoPorNombre creado exitosamente.';
 GO

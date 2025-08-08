@@ -7,8 +7,12 @@ from .views import(ContactoListCreateView,
                     HistorialEnviosView,
                     EnvioCreateView,
                     EnviarInformeView,
-                    EnviarMensajeTextView
+                    EnviarMensajeTextView,
+                    UploadToDriveAPIView,
+                    AuthorizeView,
+                    OAuth2CallbackView
                    )
+
 
 urlpatterns = [
     path('contactos/', ContactoListCreateView.as_view(), name='lista-crear-contactos'),
@@ -20,4 +24,9 @@ urlpatterns = [
     path('contactos/<int:id_contacto>/historial/', HistorialEnviosView.as_view(), name='historial-envios'),
     path('enviar-informe/', EnviarInformeView.as_view(), name='enviar-informe'),
     path('enviar-mensaje-texto/', EnviarMensajeTextView.as_view(), name='enviar-mensaje-texto'),
+    path('upload-to-drive/', UploadToDriveAPIView.as_view(), name='upload_to_drive'),
+    path('authorize/', AuthorizeView.as_view(), name='authorize'),
+    path('oauth2callback/', OAuth2CallbackView.as_view(), name='oauth2callback'),
+
+
 ]

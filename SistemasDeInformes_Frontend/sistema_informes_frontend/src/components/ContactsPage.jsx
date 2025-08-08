@@ -1,22 +1,20 @@
 // src/components/ContactsPage.jsx
-// VERSIÓN FINAL - Con el filtro 'Gerencial' completamente integrado
 
 import React, { useState, useEffect, useCallback } from 'react';
 import contactService from '../services/contactService';
 import { Container, Row, Col, Form, Button, Table, Alert, Spinner, InputGroup } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faAddressBook, faPlusCircle, faSave, faTimes, faSearch, faList, faEdit, faTrash, faFilter } from '@fortawesome/free-solid-svg-icons';
+import { faAddressBook, faPlusCircle, faSave, faTimes, faSearch, faList, faEdit, faTrash, faFilter, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { useNavigate } from 'react-router-dom';
 
 function ContactsPage() {
-  // --- ESTADOS ---
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState([]);
   const [filteredContacts, setFilteredContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Estados para los filtros y formularios
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('todos'); // 'todos', 'activos', 'inactivos', 'gerencial'
+  const [statusFilter, setStatusFilter] = useState('todos');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
@@ -25,33 +23,27 @@ function ContactsPage() {
     estado: 1
   });
 
-  // --- LÓGICA DE DATOS ---
-  // Este useEffect se ejecuta al cargar y cada vez que 'statusFilter' cambia
-  useEffect(() => {
-    const fetchApiData = async () => {
-      setLoading(true);
-      setError(null);
-
+  const fetchContacts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
       const params = { estado: statusFilter };
+      const response = await contactService.getAllContacts(params);
+      const data = response.data.results || response.data;
+      setContacts(data);
+    } catch (err) {
+      setError('No se pudieron cargar los contactos.');
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
 
-      try {
-        const response = await contactService.getAllContacts(params);
-        const data = response.data.results || response.data;
-        setContacts(data);
-      } catch (err) {
-        setError('No se pudieron cargar los contactos.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
-    fetchApiData();
-  }, [statusFilter]); // Se re-ejecuta cuando el filtro de estado cambia
-
-  // Este useEffect solo se encarga de la búsqueda por texto sobre los resultados de la API
   useEffect(() => {
     let results = [...contacts];
-
     if (searchQuery) {
       const lowercasedQuery = searchQuery.toLowerCase();
       results = results.filter(contact =>
@@ -63,11 +55,13 @@ function ContactsPage() {
     setFilteredContacts(results);
   }, [searchQuery, contacts]);
 
-
-  // --- MANEJADORES DE EVENTOS (Sin cambios) ---
   const handleInputChange = (e) => {
-    const { id, value } = e.target;
-    setFormData(prevData => ({ ...prevData, [id]: value }));
+    const { id, value, type, checked } = e.target;
+    if (type === 'checkbox' || type === 'switch') {
+      setFormData(prevData => ({ ...prevData, [id]: checked ? 1 : 0 }));
+    } else {
+      setFormData(prevData => ({ ...prevData, [id]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -81,11 +75,13 @@ function ContactsPage() {
     if (!emailRegex.test(formData.correoElectronico)) {
       setError('Por favor, introduce un formato de correo electrónico válido.'); return;
     }
-    let dataToSend;
+    const dataToSend = {
+      nombre: formData.nombre,
+      telefono: `506${formData.telefono}`,
+      correoElectronico: formData.correoElectronico,
+    };
     if (editingId) {
-      dataToSend = { nombre: formData.nombre, telefono: `506${formData.telefono}`, correoElectronico: formData.correoElectronico, estado: Number(formData.estado) };
-    } else {
-      dataToSend = { nombre: formData.nombre, telefono: `506${formData.telefono}`, correoElectronico: formData.correoElectronico };
+      dataToSend.estado = Number(formData.estado);
     }
     try {
       if (editingId) {
@@ -93,9 +89,7 @@ function ContactsPage() {
       } else {
         await contactService.createContact(dataToSend);
       }
-      const params = { estado: statusFilter };
-      const response = await contactService.getAllContacts(params);
-      setContacts(response.data.results || response.data);
+      await fetchContacts();
       handleCancelEdit();
     } catch (err) {
       const serverResponse = err.response?.data;
@@ -130,9 +124,7 @@ function ContactsPage() {
     if (window.confirm(`¿Estás seguro de que deseas eliminar a ${contact.Nombre}?`)) {
       try {
         await contactService.deleteContact(contactId);
-        const params = { estado: statusFilter };
-        const response = await contactService.getAllContacts(params);
-        setContacts(response.data.results || response.data);
+        await fetchContacts();
       } catch (err) {
         setError('Error al eliminar el contacto.');
       }
@@ -158,6 +150,11 @@ function ContactsPage() {
 
   return (
     <Container className="mt-4">
+      <Button variant="secondary" onClick={() => navigate('/')} className="mb-3">
+        <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
+        Volver al Formulario
+      </Button>
+
       <h1 className="text-center mb-4"><FontAwesomeIcon icon={faAddressBook} /> Gestión de Contactos</h1>
 
       <div className="p-3 mb-4" style={{ backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
@@ -201,7 +198,6 @@ function ContactsPage() {
         <Col md={6}><InputGroup><Form.Control type="text" placeholder="Buscar por nombre, correo o teléfono..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /><Button variant="outline-secondary"><FontAwesomeIcon icon={faSearch} /> Buscar</Button></InputGroup></Col>
         <Col md={6} lg={4} className="mt-2 mt-md-0">
           <InputGroup><InputGroup.Text><FontAwesomeIcon icon={faFilter} /></InputGroup.Text>
-            {/* El value de esta opción ahora es "gerenciales" para coincidir con la API */}
             <Form.Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="todos">Todos los estados</option>
               <option value="activos">Solo Activos</option>

@@ -119,11 +119,22 @@ class ArchivoService:
     Servicios para interactuar con los procedimientos almacenados de la tabla Archivo.
     """
     @staticmethod
-    def crear_archivo(nombre, url_publica):
+    def crear_archivo(url_publica):
+        """
+        Llama al SP mejorado para crear el registro y obtener el nombre final.
+        Devuelve un diccionario con el nuevo ID y el nombre generado.
+        """
         with connection.cursor() as cursor:
-            cursor.execute("EXEC sp_CrearArchivo @Nombre=%s, @URLPublica=%s", [nombre, url_publica])
-            row = cursor.fetchone()
-            return row[0] if row else None
+            # El SP ya no necesita el parámetro de nombre, solo la URL
+            cursor.execute("EXEC sp_CrearArchivo @URLPublica=%s", [url_publica])
+            
+            # --- CORRECCIÓN AQUÍ ---
+            # Usamos dictfetchone para leer la fila completa que devuelve el SP
+            resultado = dictfetchone(cursor) 
+            
+            return resultado # Devuelve {'IdArchivo': 123, 'Nombre': '123_Reporte...'}
+
+    
 
     @staticmethod
     def obtener_archivo_por_id(id_archivo):
