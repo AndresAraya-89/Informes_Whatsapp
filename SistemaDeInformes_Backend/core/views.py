@@ -1,6 +1,4 @@
 # core/views.py
-
-# --- CORRECCIÓN CLAVE: Usar el redirect de Django, no el de Flask ---
 from django.shortcuts import redirect 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,7 +8,7 @@ import base64
 from .drive_service import DriveService
 
 # =============================================
-# VISTAS PARA CONTACTOS (Tu código original, sin cambios)
+# VISTAS PARA CONTACTOS
 # =============================================
 class ContactoListCreateView(APIView):
     def get(self, request):
@@ -132,16 +130,15 @@ class EnviarInformeView(APIView):
     def post(self, request):
         data = request.data
         id_contacto = data.get('id_contacto')
-        nombre_archivo = data.get('nombre_archivo')
         pdf_url = data.get('pdf_url')
-        if not all([id_contacto, nombre_archivo, pdf_url]):
+        if not all([id_contacto, pdf_url]):
             return Response(
                 {'error': 'Se requiere "id_contacto", "nombre_archivo" y "pdf_url".'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         try:
             informe_service = InformeService()
-            resultado = informe_service.enviar_informe(id_contacto, nombre_archivo, pdf_url)
+            resultado = informe_service.enviar_informe(id_contacto, pdf_url)
             if resultado.get('status') == 'success':
                 return Response(resultado, status=status.HTTP_200_OK)
             else:
@@ -197,7 +194,17 @@ class UploadToDriveAPIView(APIView):
             # 3. Renombrar el archivo en Google Drive con el nombre final
             DriveService.rename_file(file_id, final_name)
             
-            # 4. Devolver la URL original al frontend
+            #4. Enviar mensaje de WhatsApp con la URL de Google Drive
+            '''print("paso 4")
+            print(request.data.get('id_contacto'))
+            print(web_view_link)
+            
+            EnvioService.enviar_mensaje_whatsapp(
+                id_contacto=request.data.get('id_contacto'),
+                pdf_url=web_view_link
+            )'''
+            
+            # n. Devolver la URL original al frontend
             return Response({"drive_url": web_view_link}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -211,7 +218,7 @@ class UploadToDriveAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
             
-# --- VISTAS DE AUTORIZACIÓN (Sin cambios) ---
+# --- VISTAS DE AUTORIZACIÓN
 class AuthorizeView(APIView):
     def get(self, request, *args, **kwargs):
         auth_url = DriveService.get_authorization_url()

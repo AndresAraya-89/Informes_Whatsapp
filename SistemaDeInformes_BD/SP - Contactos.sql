@@ -2,7 +2,7 @@ USE SistemasDeInformes
 GO
 
 -- =============================================
--- SCRIPT CORREGIDO PARA EL PROCEDIMIENTO ALMACENADO
+-- SP para crear un contacto
 -- =============================================
 ALTER PROCEDURE [dbo].[sp_CrearContacto_ConValidacion]
     @Nombre VARCHAR(100),
@@ -105,6 +105,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
     WHERE Nombre LIKE '%' + @Nombre + '%' AND Estado = 1;
@@ -121,6 +122,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
     WHERE Telefono = @Telefono;
@@ -137,6 +139,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
     WHERE CorreoElectronico = @CorreoElectronico;
@@ -153,6 +156,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
     WHERE Estado = 1
@@ -169,6 +173,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
     ORDER BY Nombre;
@@ -184,6 +189,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
 	WHERE Estado = 0
@@ -201,6 +207,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
     WHERE [IdContacto] = @Id;
@@ -217,6 +224,7 @@ BEGIN
 		IdContacto,
         Nombre,
         SUBSTRING(Telefono, 4, LEN(Telefono)) AS Telefono,
+		[CorreoElectronico],
         Estado
     FROM Contacto
 	WHERE Estado = 2
@@ -225,5 +233,27 @@ END
 GO
 
 
-use SistemasDeInformes
-EXEC sp_ObtenerContactosGerenciales;
+-- I. Obtener un el numero de telefono por medio de su id del contacto
+CREATE OR ALTER PROCEDURE sp_ObtenerTelefonoDeContactoPorId
+    @Id INT
+AS
+BEGIN
+    SELECT 
+        [Telefono]
+    FROM [dbo].[Contacto]
+    WHERE [IdContacto] = @Id;
+END
+GO
+
+
+-- J. Obtener todos los contactos gerenciales solo el numero de telefono
+CREATE OR ALTER PROCEDURE sp_ObtenerContactosGerencialesTelefono
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        Telefono
+    FROM Contacto
+	WHERE Estado = 2
+END
+GO

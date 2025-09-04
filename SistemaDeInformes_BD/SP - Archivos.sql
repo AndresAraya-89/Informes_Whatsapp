@@ -98,3 +98,22 @@ BEGIN
         Nombre;
 END
 GO
+
+-- =============================================
+-- 4. SP para consultar el id del archivo por medio de la url
+-- =============================================
+CREATE OR ALTER PROCEDURE sp_BuscarIdAchivoConURL
+    @URL_archivo VARCHAR(500)
+AS
+BEGIN
+    SELECT TOP 1 IdArchivo
+	FROM Archivo
+	WHERE [URLPublica] = @URL_archivo 
+END
+GO
+
+
+SELECT IdArchivo
+FROM Archivo
+WHERE [URLPublica] = @URL_archivo 
+AND [URLPublica].COUNT = @URL_archivo.COUNT

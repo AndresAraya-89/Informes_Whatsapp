@@ -112,6 +112,15 @@ class ContactoService:
             cursor.execute("EXEC sp_ObtenerContactosGerenciales")
             return dictfetchall(cursor)
     
+    
+    def obtener_telefono_por_id(id_contacto):
+        """
+        Llama al SP para obtener solo el número de teléfono de un contacto por su ID.
+        """
+        with connection.cursor() as cursor:
+            cursor.execute("EXEC sp_ObtenerTelefonoDeContactoPorId @Id=%s", [id_contacto])
+            row = cursor.fetchone()
+            return row[0] if row else None
 
 
 class ArchivoService:
@@ -125,14 +134,9 @@ class ArchivoService:
         Devuelve un diccionario con el nuevo ID y el nombre generado.
         """
         with connection.cursor() as cursor:
-            # El SP ya no necesita el parámetro de nombre, solo la URL
             cursor.execute("EXEC sp_CrearArchivo @URLPublica=%s", [url_publica])
-            
-            # --- CORRECCIÓN AQUÍ ---
-            # Usamos dictfetchone para leer la fila completa que devuelve el SP
             resultado = dictfetchone(cursor) 
-            
-            return resultado # Devuelve {'IdArchivo': 123, 'Nombre': '123_Reporte...'}
+            return resultado 
 
     
 
@@ -153,6 +157,18 @@ class ArchivoService:
         with connection.cursor() as cursor:
             cursor.execute("EXEC sp_BuscarArchivoPorNombre @Nombre=%s", [nombre])
             return dictfetchall(cursor)
+        
+    
+    def obtener_id_archivo_por_url(url_archivo):
+        with connection.cursor() as cursor:
+            cursor.execute("EXEC sp_BuscarIdAchivoConURL @URL_archivo=%s", [url_archivo])
+            resultado_dict = dictfetchone(cursor)
+            if resultado_dict:
+                return resultado_dict.get('IdArchivo')
+            return None
+        
+        
+        
 
 
 
@@ -181,9 +197,11 @@ class EnvioService:
             return dictfetchall(cursor)
         
         
+# En tu archivo core/services.py
+
 class InformeService:
     """
-    Servicio para orquestar el envío de un informe cuya URL es proporcionada por el frontend.
+    Servicio para orquestar el envío de informes y mensajes.
     """
     def __init__(self):
         # Cargar credenciales de Twilio
@@ -192,65 +210,104 @@ class InformeService:
         self.twilio_sender_number = os.getenv("TWILIO_WHATSAPP_NUMBER")
         self.twilio_client = Client(self.twilio_account_sid, self.twilio_auth_token)
 
-    def enviar_informe(self, id_contacto, nombre_archivo, pdf_url):
+    def _convert_drive_url_to_direct_download(self, url):
+        """
+        Convierte una URL de vista de Google Drive a una URL de descarga directa.
+        Ej: .../view -> .../uc?export=download&id=...
+        """
+        try:
+            # Extraemos el ID del archivo de la URL
+            file_id = url.split('/d/')[1].split('/')[0]
+            return f"https://drive.google.com/uc?export=download&id={file_id}"
+        except IndexError:
+            # Si la URL no tiene el formato esperado, devolvemos None
+            return None
+    
+
+
+    def enviar_informe(self, id_contacto, pdf_url):
         """
         Orquesta el flujo de envío de un informe.
         """
-        # 1. Obtener datos del contacto
-        contacto = ContactoService.obtener_contacto_por_id(id_contacto)
-        if not contacto:
-            return {'status': 'error', 'message': 'Contacto no encontrado.'}
+        telefono_contacto = ContactoService.obtener_telefono_por_id(id_contacto)
+        if not telefono_contacto:
+            return {'status': 'error', 'message': 'Contacto no encontrado o sin número de teléfono.'}
+
+        # --- CAMBIO CLAVE: Transformar la URL ---
+        direct_download_url = self._convert_drive_url_to_direct_download(pdf_url)
+        if not direct_download_url:
+            return {'status': 'error', 'message': 'La URL de Google Drive proporcionada no es válida.'}
 
         try:
-            # 2. Registrar el archivo en la BD
-            id_archivo = ArchivoService.crear_archivo(nombre_archivo, pdf_url)
-            if not id_archivo:
-                raise Exception("Fallo al registrar el archivo en la base de datos.")
-
-            # 3. Enviar mensaje por WhatsApp
+            id_archivo = ArchivoService.obtener_id_archivo_por_url(pdf_url)
+        
+            # Enviar mensaje por WhatsApp usando la URL de descarga directa
             message = self.twilio_client.messages.create(
                 from_=f"whatsapp:{self.twilio_sender_number}",
-                to=f"whatsapp:{contacto['Telefono']}",
-                body="Adjunto el informe solicitado.",
-                media_url=[pdf_url]
+                to=f"whatsapp:{telefono_contacto}",
+                body="Adjunto reporte de insicente.",
+                media_url=[direct_download_url] # <-- Usamos la URL transformada
             )
             twilio_sid = message.sid
+                
+                   
+            print ('Id Contacto:' + str(id_contacto))
+            print ('Id Archivo:' + str(id_archivo))
+            print ('Twilio SID:' + twilio_sid)
             
-            # 4. Registrar el envío exitoso en la BD
             EnvioService.crear_envio(id_contacto, id_archivo, 'Enviado', twilio_sid)
-            
-            return {'status': 'success', 'message': f'Informe enviado a {contacto["Nombre"]}.', 'sid': twilio_sid}
+            return {'status': 'success', 'message': f'Informe enviado al contacto con ID {id_contacto}.', 'sid': twilio_sid}
+
 
         except Exception as e:
-            # 5. Si algo falla, registrar el envío fallido
-            # (Asumimos que id_archivo ya se creó si el error ocurrió después)
             if 'id_archivo' in locals() and id_archivo:
                 EnvioService.crear_envio(id_contacto, id_archivo, 'Fallido', None)
             return {'status': 'error', 'message': str(e)}
+        
+    ''''
+    def enviar_respaldo_rol_gerencial(self, direct_download_url):
+        try:
+        lista_contactos = ContactoService.obtener_contactos_gerenciales()
+        
+        for contacto in lista_contactos:
+            telefono_contacto = ContactoService.obtener_telefono_por_id(contacto['IdContacto'])
+            if not telefono_contacto:
+                continue
+            
+            message = self.twilio_client.messages.create(
+                from_=f"whatsapp:{self.twilio_sender_number}",
+                to=f"whatsapp:{telefono_contacto}",
+                body="Adjunto reporte de insicente.",
+                media_url=[direct_download_url] # <-- Usamos la URL transformada
+            )
+            twilio_sid = message.sid
+            
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}  
+        '''
+         
         
     def enviar_mensaje_texto(self, id_contacto, mensaje):
         """
         Orquesta el envío de un mensaje de texto simple.
         """
-        # 1. Obtener datos del contacto
-        contacto = ContactoService.obtener_contacto_por_id(id_contacto)
-        if not contacto:
-            return {'status': 'error', 'message': 'Contacto no encontrado.'}
+        # --- CAMBIO 4: Obtener solo el teléfono, de forma más eficiente ---
+        telefono_contacto = ContactoService.obtener_telefono_por_id(id_contacto)
+        if not telefono_contacto:
+            return {'status': 'error', 'message': 'Contacto no encontrado o sin número de teléfono.'}
 
         try:
             # 2. Enviar mensaje por WhatsApp
             message = self.twilio_client.messages.create(
                 from_=f"whatsapp:{self.twilio_sender_number}",
-                to=f"whatsapp:{contacto['Telefono']}",
+                # --- CAMBIO 5: Usar la variable 'telefono_contacto' ---
+                to=f"whatsapp:{telefono_contacto}",
                 body=mensaje
             )
             twilio_sid = message.sid
             
-            # Nota: Este envío simple no se registra en la tabla 'Envio' porque
-            # no tiene un archivo asociado. Se podría añadir un registro de "dummy file"
-            # o modificar la BD en el futuro si se necesita auditoría de textos.
-            
-            return {'status': 'success', 'message': f'Mensaje enviado a {contacto["Nombre"]}.', 'sid': twilio_sid}
+            # --- CAMBIO 6: Mensaje de éxito actualizado ---
+            return {'status': 'success', 'message': f'Mensaje enviado al contacto con ID {id_contacto}.', 'sid': twilio_sid}
 
         except TwilioRestException as e:
             return {'status': 'error', 'message': str(e)}

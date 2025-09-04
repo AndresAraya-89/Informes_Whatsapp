@@ -5,51 +5,41 @@ import { useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Card, Row, Col, Image, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileAlt, faPaperPlane, faAddressBook, faVideo, faUserCheck } from '@fortawesome/free-solid-svg-icons';
-
-// Importamos el servicio de contactos para poder obtener la lista
-import contactService from '../services/contactService';
+// --- CORRECCIÓN: Se utiliza una ruta absoluta para asegurar que el servicio se encuentre ---
+import contactService from '/src/services/contactService.js';
 
 function GenerarReporte() {
     const navigate = useNavigate();
 
-    // --- ESTADOS ---
-    // Añadimos los nuevos campos al estado del formulario
     const [formData, setFormData] = useState({
         lugar: '',
         oficiales: '',
         tipoIncidente: '',
         afectado: '',
         narracion: '',
-        numeroCamara: '', // Nuevo campo
-        contactoSeleccionado: '' // Nuevo campo para el contacto
+        numeroCamara: '',
+        contactoSeleccionado: '' // Este guardará el ID del contacto
     });
 
-    // Nuevos estados para manejar la carga de contactos
     const [activeContacts, setActiveContacts] = useState([]);
     const [loadingContacts, setLoadingContacts] = useState(true);
     const [anexoUrl, setAnexoUrl] = useState(null);
 
-    // --- LÓGICA DE DATOS ---
-    // Este useEffect se ejecuta una vez al cargar el componente para obtener los contactos
     useEffect(() => {
         const loadActiveContacts = async () => {
             try {
-                // Por defecto, getAllContacts() obtiene los contactos activos
                 const response = await contactService.getAllContacts();
                 const data = response.data.results || response.data;
                 setActiveContacts(data);
             } catch (error) {
                 console.error("Error al cargar los contactos activos:", error);
-                // Opcional: mostrar un error al usuario
             } finally {
                 setLoadingContacts(false);
             }
         };
-
         loadActiveContacts();
-    }, []); // El array vacío asegura que se ejecute solo una vez
+    }, []);
 
-    // --- MANEJADORES DE EVENTOS ---
     const handleInputChange = (e) => {
         const { id, value } = e.target;
         setFormData(prevData => ({ ...prevData, [id]: value }));
@@ -78,16 +68,21 @@ function GenerarReporte() {
     }, []);
 
     const handlePreview = () => {
-        // Buscamos el objeto del contacto seleccionado para pasarlo al reporte
+        // 1. Buscamos el objeto completo del contacto seleccionado usando el ID que está en el estado.
         const selectedContactObject = activeContacts.find(c => c.IdContacto.toString() === formData.contactoSeleccionado);
-        // Creamos una cadena de texto con el nombre y el teléfono para el reporte
-        const contactDetails = selectedContactObject
+
+        // 2. Creamos el texto amigable para mostrar en el PDF.
+        const contactDisplayText = selectedContactObject
             ? `${selectedContactObject.Nombre} (${selectedContactObject.Telefono})`
             : 'No seleccionado';
 
+        // 3. Construimos el objeto de datos para la siguiente página.
         const reportData = {
             ...formData,
-            contactoSeleccionado: contactDetails, // Pasamos los detalles completos en lugar de solo el nombre
+            // Añadimos explícitamente el ID del contacto.
+            contactoSeleccionadoId: formData.contactoSeleccionado,
+            // Añadimos el texto amigable.
+            contactoSeleccionadoDisplay: contactDisplayText,
             anexoUrl,
             fecha: new Date().toLocaleDateString('es-ES', {
                 year: 'numeric',
@@ -95,6 +90,10 @@ function GenerarReporte() {
                 day: 'numeric'
             })
         };
+        // 4. Eliminamos la propiedad original para evitar confusiones en el siguiente componente.
+        delete reportData.contactoSeleccionado;
+
+        // 5. Navegamos a la página del PDF, pasando el objeto de datos completo.
         navigate('/archivo-pdf', { state: { reportData } });
     };
 
@@ -106,14 +105,12 @@ function GenerarReporte() {
                     Gestionar Contactos
                 </Button>
             </div>
-
             <Card className="p-4 p-md-5 shadow-sm">
                 <Card.Body>
                     <Card.Title as="h1" className="text-center mb-4">
                         <FontAwesomeIcon icon={faFileAlt} className="me-2" />
                         Generar Nuevo Informe de Incidente
                     </Card.Title>
-
                     <Form>
                         <Row>
                             <Col md={6} className="mb-3">
@@ -131,30 +128,21 @@ function GenerarReporte() {
                                 <Form.Group><Form.Label htmlFor="afectado">Datos del o los afectado(s)</Form.Label><Form.Control type="text" id="afectado" value={formData.afectado} onChange={handleInputChange} required /></Form.Group>
                             </Col>
                         </Row>
-
-                        {/* --- NUEVOS CAMPOS AÑADIDOS --- */}
                         <Row>
                             <Col md={6} className="mb-3">
                                 <Form.Group>
-                                    <Form.Label htmlFor="numeroCamara">
-                                        <FontAwesomeIcon icon={faVideo} className="me-2" />
-                                        Número de Cámara
-                                    </Form.Label>
+                                    <Form.Label htmlFor="numeroCamara"><FontAwesomeIcon icon={faVideo} className="me-2" />Número de Cámara</Form.Label>
                                     <Form.Control type="text" id="numeroCamara" value={formData.numeroCamara} onChange={handleInputChange} />
                                 </Form.Group>
                             </Col>
                             <Col md={6} className="mb-3">
                                 <Form.Group>
-                                    <Form.Label htmlFor="contactoSeleccionado">
-                                        <FontAwesomeIcon icon={faUserCheck} className="me-2" />
-                                        Seleccionar Contacto Activo
-                                    </Form.Label>
+                                    <Form.Label htmlFor="contactoSeleccionado"><FontAwesomeIcon icon={faUserCheck} className="me-2" />Seleccionar Contacto Activo</Form.Label>
                                     {loadingContacts ? <Spinner animation="border" size="sm" /> : (
                                         <Form.Select id="contactoSeleccionado" value={formData.contactoSeleccionado} onChange={handleInputChange}>
                                             <option value="">-- Seleccione un contacto --</option>
                                             {activeContacts.map(contact => (
                                                 <option key={contact.IdContacto} value={contact.IdContacto}>
-                                                    {/* --- CAMBIO AQUÍ: Se muestra el nombre y el teléfono --- */}
                                                     {contact.Nombre} ({contact.Telefono})
                                                 </option>
                                             ))}
@@ -163,25 +151,21 @@ function GenerarReporte() {
                                 </Form.Group>
                             </Col>
                         </Row>
-
                         <Form.Group className="mb-3">
                             <Form.Label htmlFor="narracion">Narración de Hecho</Form.Label>
                             <Form.Control as="textarea" rows={5} id="narracion" value={formData.narracion} onChange={handleInputChange} required />
                         </Form.Group>
-
                         <Form.Group className="mb-4" onPaste={handlePaste}>
                             <Form.Label>Anexo (Seleccionar o Pegar Imagen)</Form.Label>
                             <Form.Control type="file" accept="image/*" onChange={handleFileChange} />
                             <Form.Text>Puedes seleccionar un archivo o pegar una captura de pantalla (Ctrl+V).</Form.Text>
                         </Form.Group>
-
                         {anexoUrl && (
                             <div className="mb-4 text-center">
                                 <p><strong>Previsualización del Anexo:</strong></p>
                                 <Image src={anexoUrl} thumbnail fluid style={{ maxHeight: '300px' }} />
                             </div>
                         )}
-
                         <div className="d-grid">
                             <Button variant="primary" size="lg" onClick={handlePreview}>
                                 <FontAwesomeIcon icon={faPaperPlane} className="me-2" />
