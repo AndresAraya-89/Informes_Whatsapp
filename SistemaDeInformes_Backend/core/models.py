@@ -1,4 +1,5 @@
 # core/models.py
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 # =============================================
@@ -58,4 +59,17 @@ class Envio(models.Model):
 
     def __str__(self):
         return f"Envío {self.id_envio} a {self.id_contacto.nombre}"
+    
+class Usuario(AbstractUser):
+    # Django ya maneja id, nombre (first_name), y contraseña (password).
+    # El campo 'username' es el que usaremos para el login.
+    estadoActividad = models.BooleanField(default=True)
+    estadoRecuperacion = models.BooleanField(default=False)
+    # El campo fechaCreacion ya es manejado por Django como 'date_joined'.
+    telefono = models.CharField(max_length=100, blank=True, null=True)
+
+
+    def __str__(self):
+        return self.username
+    
 

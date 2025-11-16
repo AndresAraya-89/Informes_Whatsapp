@@ -34,7 +34,7 @@ POST {{baseUrl}}/enviar-informe/
 Content-Type: application/json
 
 {
-    "id_contacto": 1033,
+    "id_contacto": 1,
     "pdf_url": "https://drive.google.com/file/d/1O5yKGpLL8aAF__XHj8RfWIgSXuyC-JvK/view?usp=drive_link"
 }
 

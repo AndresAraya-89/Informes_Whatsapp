@@ -53,9 +53,6 @@ BEGIN
 END
 GO
 
-PRINT 'Procedimiento sp_ObtenerArchivoPorId creado exitosamente.';
-GO
-
 -- =============================================
 -- 3. PROCEDIMIENTO PARA OBTENER TODOS LOS ARCHIVOS
 -- =============================================
@@ -113,7 +110,20 @@ END
 GO
 
 
-SELECT IdArchivo
-FROM Archivo
-WHERE [URLPublica] = @URL_archivo 
-AND [URLPublica].COUNT = @URL_archivo.COUNT
+CREATE OR ALTER PROCEDURE sp_ObtenerArchivoPorURL
+    @urlPublica VARCHAR (500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 1
+        IdArchivo,
+        Nombre,
+        URLPublica,
+        FechaSubida
+    FROM 
+        Archivo
+    WHERE 
+        URLPublica = @urlPublica;
+END
+GO

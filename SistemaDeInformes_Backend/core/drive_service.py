@@ -86,12 +86,12 @@ class DriveService:
         except Exception as e:
             print(f"Ocurrió un error DETALLADO al subir a Google Drive: {e}")
             raise e
-        
     @staticmethod
     def rename_file(file_id, new_name):
         """
         Renombra un archivo existente en Google Drive usando su ID.
         """
+        
         creds = DriveService._get_credentials()
         if not creds or not creds.valid:
             raise Exception("Authorization required")

@@ -13,3 +13,19 @@ EXEC [dbo].[sp_ObtenerContactoPorId] @Id = 1;
 
 EXEC [dbo].[sp_BuscarIdAchivoConURL] @URL_archivo = 'https://drive.google.com/file/d/1Kz2v2OOI9XNH5hXQuiLAdDFBWOvDlEj3/view?usp=drivesdk';
 EXEC sp_ObtenerContactosGerencialesTelefono;
+
+
+SELECT * FROM Archivo;
+
+
+DELETE FROM Envio
+WHERE idArchivo IN (
+	SELECT IdArchivo FROM Archivo
+	WHERE URLPublica NOT LIKE 'https://drive.google%'
+);
+
+DELETE FROM Envio 
+WHERE TwilioSID NOT LIKE 'MM%'
+
+DELETE FROM ARCHIVO
+WHERE URLPublica NOT LIKE 'https://drive.google%'

@@ -29,7 +29,6 @@ POST {{baseUrl}}/archivos/
 Content-Type: application/json
 
 {
-    "Nombre": "Informe2_Julio_2025.pdf",
-    "URLPublica": "https://example.com/ruta/al/pdf/Informe_Julio_2025.pdf"
+    "URLPublica": "https://drive.google.com/file/d/19DK-1PKn9YcLHM8AG4KeDFQp9JWKZOTG/view?usp=drivesdk"
 }
 

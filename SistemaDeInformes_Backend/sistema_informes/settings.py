@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta # <-- 1. IMPORTAMOS timedelta
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,10 +39,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Aquí agregamos nuestras aplicaciones    
+    # Aquí agregamos nuestras aplicaciones 
     'core',
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt', # <-- 2. AÑADIMOS la app de JWT
 ]
 
 MIDDLEWARE = [
@@ -134,3 +137,19 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+AUTH_USER_MODEL = 'core.Usuario'
+
+# --- 3. AÑADIMOS LA CONFIGURACIÓN DE JWT ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+SIMPLE_JWT = {
+    #línea clave para requerimiento de 8 horas
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
+

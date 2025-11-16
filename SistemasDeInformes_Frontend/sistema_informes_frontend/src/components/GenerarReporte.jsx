@@ -1,12 +1,17 @@
 // src/components/GenerarReporte.jsx
+// AÑADIDO EL BOTÓN DE CERRAR SESIÓN
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Card, Row, Col, Image, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileAlt, faPaperPlane, faAddressBook, faVideo, faUserCheck } from '@fortawesome/free-solid-svg-icons';
-// --- CORRECCIÓN: Se utiliza una ruta absoluta para asegurar que el servicio se encuentre ---
-import contactService from '/src/services/contactService.js';
+// --- 1. AÑADIMOS EL ÍCONO 'faSignOutAlt' (Cerrar Sesión) ---
+import { faFileAlt, faPaperPlane, faAddressBook, faVideo, faUserCheck, faUsers, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+
+import contactService from '../services/contactService.js';
+import userService from '../services/userService.js';
+// --- 2. IMPORTAMOS EL SERVICIO DE AUTENTICACIÓN ---
+import authService from '../services/authService.js';
 
 function GenerarReporte() {
     const navigate = useNavigate();
@@ -18,7 +23,7 @@ function GenerarReporte() {
         afectado: '',
         narracion: '',
         numeroCamara: '',
-        contactoSeleccionado: '' // Este guardará el ID del contacto
+        contactoSeleccionado: ''
     });
 
     const [activeContacts, setActiveContacts] = useState([]);
@@ -26,19 +31,36 @@ function GenerarReporte() {
     const [anexoUrl, setAnexoUrl] = useState(null);
 
     useEffect(() => {
-        const loadActiveContacts = async () => {
+        const loadInitialData = async () => {
+            setLoadingContacts(true);
             try {
-                const response = await contactService.getAllContacts();
-                const data = response.data.results || response.data;
-                setActiveContacts(data);
+                const [profileResponse, contactsResponse] = await Promise.all([
+                    userService.getSelfProfile(),
+                    contactService.getAllContacts()
+                ]);
+
+                const user = profileResponse.data;
+                const userName = user.first_name || user.last_name
+                    ? `${user.first_name} ${user.last_name}`.trim()
+                    : user.username;
+
+                setFormData(prevData => ({ ...prevData, oficiales: userName }));
+
+                const contactsData = contactsResponse.data.results || contactsResponse.data;
+                setActiveContacts(contactsData);
+
             } catch (error) {
-                console.error("Error al cargar los contactos activos:", error);
+                console.error("Error al cargar datos iniciales:", error);
+                if (error.response && error.response.status === 401) {
+                    navigate('/login');
+                }
             } finally {
                 setLoadingContacts(false);
             }
         };
-        loadActiveContacts();
-    }, []);
+
+        loadInitialData();
+    }, [navigate]);
 
     const handleInputChange = (e) => {
         const { id, value } = e.target;
@@ -68,20 +90,14 @@ function GenerarReporte() {
     }, []);
 
     const handlePreview = () => {
-        // 1. Buscamos el objeto completo del contacto seleccionado usando el ID que está en el estado.
         const selectedContactObject = activeContacts.find(c => c.IdContacto.toString() === formData.contactoSeleccionado);
-
-        // 2. Creamos el texto amigable para mostrar en el PDF.
         const contactDisplayText = selectedContactObject
             ? `${selectedContactObject.Nombre} (${selectedContactObject.Telefono})`
             : 'No seleccionado';
 
-        // 3. Construimos el objeto de datos para la siguiente página.
         const reportData = {
             ...formData,
-            // Añadimos explícitamente el ID del contacto.
             contactoSeleccionadoId: formData.contactoSeleccionado,
-            // Añadimos el texto amigable.
             contactoSeleccionadoDisplay: contactDisplayText,
             anexoUrl,
             fecha: new Date().toLocaleDateString('es-ES', {
@@ -90,21 +106,35 @@ function GenerarReporte() {
                 day: 'numeric'
             })
         };
-        // 4. Eliminamos la propiedad original para evitar confusiones en el siguiente componente.
         delete reportData.contactoSeleccionado;
-
-        // 5. Navegamos a la página del PDF, pasando el objeto de datos completo.
         navigate('/archivo-pdf', { state: { reportData } });
+    };
+
+    // --- 3. NUEVA FUNCIÓN PARA MANEJAR EL LOGOUT ---
+    const handleLogout = () => {
+        authService.logout(); // Borra el token del localStorage
+        navigate('/login'); // Redirige al login
     };
 
     return (
         <Container className="mt-5">
-            <div className="d-flex justify-content-end mb-3">
+            {/* --- 4. BOTONES DE GESTIÓN ACTUALIZADOS --- */}
+            <div className="d-flex justify-content-end mb-3 gap-2">
+                <Button variant="outline-dark" onClick={() => navigate('/users')}>
+                    <FontAwesomeIcon icon={faUsers} className="me-2" />
+                    Gestionar Usuarios
+                </Button>
                 <Button variant="outline-secondary" onClick={() => navigate('/contacts')}>
                     <FontAwesomeIcon icon={faAddressBook} className="me-2" />
                     Gestionar Contactos
                 </Button>
+                {/* --- BOTÓN DE CERRAR SESIÓN AÑADIDO --- */}
+                <Button variant="outline-danger" onClick={handleLogout}>
+                    <FontAwesomeIcon icon={faSignOutAlt} className="me-2" />
+                    Cerrar Sesión
+                </Button>
             </div>
+
             <Card className="p-4 p-md-5 shadow-sm">
                 <Card.Body>
                     <Card.Title as="h1" className="text-center mb-4">
@@ -117,7 +147,18 @@ function GenerarReporte() {
                                 <Form.Group><Form.Label htmlFor="lugar">Lugar del evento</Form.Label><Form.Control type="text" id="lugar" value={formData.lugar} onChange={handleInputChange} required /></Form.Group>
                             </Col>
                             <Col md={6} className="mb-3">
-                                <Form.Group><Form.Label htmlFor="oficiales">Oficiales en servicio</Form.Label><Form.Control type="text" id="oficiales" value={formData.oficiales} onChange={handleInputChange} required /></Form.Group>
+                                <Form.Group>
+                                    <Form.Label htmlFor="oficiales">Oficiales en servicio</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        id="oficiales"
+                                        value={formData.oficiales}
+                                        onChange={handleInputChange}
+                                        readOnly
+                                        style={{ backgroundColor: '#e9ecef' }}
+                                        required
+                                    />
+                                </Form.Group>
                             </Col>
                         </Row>
                         <Row>
@@ -155,17 +196,20 @@ function GenerarReporte() {
                             <Form.Label htmlFor="narracion">Narración de Hecho</Form.Label>
                             <Form.Control as="textarea" rows={5} id="narracion" value={formData.narracion} onChange={handleInputChange} required />
                         </Form.Group>
+
                         <Form.Group className="mb-4" onPaste={handlePaste}>
                             <Form.Label>Anexo (Seleccionar o Pegar Imagen)</Form.Label>
                             <Form.Control type="file" accept="image/*" onChange={handleFileChange} />
                             <Form.Text>Puedes seleccionar un archivo o pegar una captura de pantalla (Ctrl+V).</Form.Text>
                         </Form.Group>
+
                         {anexoUrl && (
                             <div className="mb-4 text-center">
                                 <p><strong>Previsualización del Anexo:</strong></p>
                                 <Image src={anexoUrl} thumbnail fluid style={{ maxHeight: '300px' }} />
                             </div>
                         )}
+
                         <div className="d-grid">
                             <Button variant="primary" size="lg" onClick={handlePreview}>
                                 <FontAwesomeIcon icon={faPaperPlane} className="me-2" />
