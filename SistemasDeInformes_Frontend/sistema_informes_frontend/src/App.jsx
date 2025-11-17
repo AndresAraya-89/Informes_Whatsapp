@@ -3,7 +3,7 @@
 import './App.css'; // Ajusta la ruta si es necesario
 import { Routes, Route } from 'react-router-dom';
 import GenerarReporte from './components/GenerarReporte.jsx';
-import ArchivoPDF from './components/ArchivoPDF.jsx';
+import ArchivoPDF from './components/archivoPDF.jsx';
 import ContactsPage from './components/ContactsPage.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import UsersPage from './components/UsersPage.jsx';
