@@ -1,5 +1,4 @@
 // src/components/ArchivoPDF.jsx
-// VERSIÓN CON FLUJO AUTOMÁTICO COMPLETO (DRIVE + WHATSAPP)
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -7,9 +6,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Button, Container, Alert, Spinner, InputGroup, Form } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// --- Añadimos el ícono de envío (avión de papel) ---
-import { faArrowLeft, faCloudUploadAlt, faCheckCircle, faExclamationTriangle, faCopy, faKey, faSyncAlt, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
-
+import { faArrowLeft, faCheckCircle, faExclamationTriangle, faCopy, faKey, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 import archiveService from '../services/archiveService';
 import Logo from '../assets/Logo.png'; // Asegúrate de que la ruta al logo es correcta
 
@@ -17,18 +14,16 @@ function ArchivoPDF() {
     const location = useLocation();
     const navigate = useNavigate();
     const reportTemplateRef = useRef(null);
-    // Asumimos que 'reportData' viene de GenerarReporte.jsx
-    // y que contiene 'contactoSeleccionadoId'
     const reportData = location.state?.reportData;
 
     const [isProcessing, setIsProcessing] = useState(true);
     const [processStatus, setProcessStatus] = useState({
         status: 'processing',
-        message: 'Generando informe...', // Mensaje inicial
+        message: 'Generando informe...',
         url: ''
     });
 
-    // Usamos un ref para evitar la doble ejecución en Modo Estricto de React
+    const [copySuccess, setCopySuccess] = useState(false); // Estado para el botón de copiar
     const hasRun = useRef(false);
 
     // --- LÓGICA DE GUARDADO Y ENVÍO AUTOMÁTICO ---
@@ -37,7 +32,6 @@ function ArchivoPDF() {
         setProcessStatus({ status: 'processing', message: 'Iniciando subida a Google Drive...', url: '' });
 
         const input = reportTemplateRef.current;
-        await new Promise(resolve => setTimeout(resolve, 500));
 
         if (!input || !reportData) {
             setProcessStatus({ status: 'error', message: 'Faltan datos o la plantilla no se pudo cargar.' });
@@ -45,29 +39,64 @@ function ArchivoPDF() {
             return;
         }
 
+        // 1. Guardamos los estilos responsivos originales
+        const originalStyles = {
+            width: input.style.width,
+            maxWidth: input.style.maxWidth,
+            margin: input.style.margin
+        };
+
+        // 2. FORZAMOS el ancho a 800px para que html2canvas genere el PDF en alta calidad
+        input.style.width = '800px';
+        input.style.maxWidth = '800px';
+        input.style.margin = '0'; // Quitar 'auto' temporalmente
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         try {
-            // --- PASO 1: Generar y Subir a Google Drive ---
-            setProcessStatus(prev => ({ ...prev, message: 'Subiendo informe a Google Drive...' }));
+            // --- PASO 1: Generar Canvas ---
+            setProcessStatus(prev => ({ ...prev, message: 'Procesando informe (1/3)...' }));
+
             const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+
+            // --- LÓGICA DE PAGINACIÓN DE PDF (Corregida) ---
+            const canvasImgData = canvas.toDataURL('image/png', 1.0);
             const pdf = new jsPDF('p', 'mm', 'a4');
+
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const ratio = canvas.width / canvas.height;
-            const imgHeight = pdfWidth / ratio;
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, imgHeight);
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const ratio = pdfWidth / canvasWidth;
+            const imgHeight = canvasHeight * ratio;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(canvasImgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft > 0) {
+                position -= pdfHeight;
+                pdf.addPage();
+                pdf.addImage(canvasImgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+            // --- FIN DE LA CORRECCIÓN DE PAGINACIÓN ---
 
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
-            // Usamos el ID del contacto en el nombre del archivo para asegurar que sea único
             const fileName = `Informe_Contacto_${reportData.contactoSeleccionadoId}_${Date.now()}.pdf`;
 
+            // --- PASO 2: Subir a Google Drive ---
+            setProcessStatus(prev => ({ ...prev, message: 'Subiendo a Google Drive (2/3)...' }));
             const uploadResponse = await archiveService.uploadReportToDrive(pdfBase64, fileName);
             const driveUrl = uploadResponse.data.drive_url;
-            console.log("Informe subido a Drive:", driveUrl);
 
-            // --- PASO 2: Enviar por WhatsApp ---
-            setProcessStatus(prev => ({ ...prev, status: 'processing', message: '¡Guardado! Enviando por WhatsApp...', url: driveUrl }));
+            // --- PASO 3: Enviar por WhatsApp ---
+            setProcessStatus(prev => ({ ...prev, status: 'processing', message: '¡Guardado! Enviando por WhatsApp (3/3)...', url: driveUrl }));
 
             if (!reportData.contactoSeleccionadoId) {
-                // Esta validación es clave
                 throw new Error("No se seleccionó un contacto para el envío.");
             }
 
@@ -76,7 +105,7 @@ function ArchivoPDF() {
                 driveUrl
             );
 
-            // --- PASO 3: Éxito Total ---
+            // --- PASO 4: Éxito Total ---
             setProcessStatus({
                 status: 'success',
                 message: whatsAppResponse.data.message || '¡Informe guardado y enviado exitosamente!',
@@ -84,7 +113,7 @@ function ArchivoPDF() {
             });
 
         } catch (error) {
-            // Manejo de errores mejorado
+            // Manejo de errores
             if (error.response && error.response.status === 401) {
                 setProcessStatus({
                     status: 'authorization_required',
@@ -92,28 +121,46 @@ function ArchivoPDF() {
                 });
             } else {
                 console.error("Error en el proceso:", error);
-                // Si el error es de la API de backend, mostramos ese mensaje
                 const serverErrorMessage = error.response?.data?.error || error.response?.data?.message;
-                // Si no, mostramos el error general
                 const errorMessage = serverErrorMessage || error.message || "Ocurrió un error desconocido.";
                 setProcessStatus({ status: 'error', message: `Fallo en el proceso: ${errorMessage}` });
             }
         } finally {
             setIsProcessing(false);
+
+            // 4. DEVOLVEMOS el elemento a su estilo responsivo original
+            if (input) {
+                input.style.width = originalStyles.width;
+                input.style.maxWidth = originalStyles.maxWidth;
+                input.style.margin = originalStyles.margin;
+            }
         }
-    }, [reportData]); // Depende de 'reportData'
+    }, [reportData]);
 
     // Este useEffect inicia todo el proceso automáticamente
     useEffect(() => {
-        // Evita la doble ejecución en Modo Estricto
         if (hasRun.current || !reportData) return;
         hasRun.current = true;
 
         generateAndUpload();
-    }, [generateAndUpload, reportData]); // Se ejecuta cuando la función y los datos están listos
+    }, [generateAndUpload, reportData]);
 
+
+    // --- FUNCIÓN DE COPIAR (Sin 'alert') ---
     const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch (err) {
+            console.error('No se pudo copiar el enlace: ', err);
+        }
+        document.body.removeChild(textArea);
     };
 
     const redirectToAuth = () => {
@@ -124,7 +171,6 @@ function ArchivoPDF() {
         });
     };
 
-    // La función de reintento ahora simplemente vuelve a llamar a la función principal
     const retryUpload = () => {
         generateAndUpload();
     };
@@ -142,30 +188,38 @@ function ArchivoPDF() {
     }
 
     return (
-        <Container className="my-5 bg-light p-4">
-            <div className="text-center mb-4">
-                {/* --- INTERFAZ DE ESTADO MEJORADA --- */}
+        <Container className="my-5 p-3 p-md-4">
 
+            {/* --- PARTE 1: INTERFAZ DE CONTROL --- */}
+            <div className="text-center mb-4">
                 {isProcessing && (
                     <Alert variant="info">
                         <Spinner size="sm" className="me-2" />
-                        {processStatus.message} {/* Muestra mensajes dinámicos */}
+                        {processStatus.message}
                     </Alert>
                 )}
 
                 {processStatus.status === 'success' && (
                     <Alert variant="success">
-                        <Alert.Heading><FontAwesomeIcon icon={faCheckCircle} className="me-2" /> {processStatus.message}</Alert.Heading>
+                        <Alert.Heading><FontAwesomeIcon icon={faCheckCircle} className="me-2" /> ¡Éxito!</Alert.Heading>
+                        <p>{processStatus.message}</p>
                         <InputGroup>
                             <Form.Control value={processStatus.url} readOnly />
-                            <Button variant="outline-success" onClick={() => copyToClipboard(processStatus.url)}>
-                                <FontAwesomeIcon icon={faCopy} /> Copiar Enlace
+
+                            <Button
+                                variant={copySuccess ? "success" : "outline-success"}
+                                onClick={() => copyToClipboard(processStatus.url)}
+                                disabled={copySuccess}
+                            >
+                                <FontAwesomeIcon icon={copySuccess ? faCheckCircle : faCopy} />
+                                <span className="d-none d-sm-inline ms-2">
+                                    {copySuccess ? "¡Copiado!" : "Copiar Enlace"}
+                                </span>
                             </Button>
                         </InputGroup>
                     </Alert>
                 )}
 
-                {/* ... (Alertas de autorización, info y error sin cambios) ... */}
                 {processStatus.status === 'authorization_required' && (
                     <Alert variant="warning">
                         <Alert.Heading><FontAwesomeIcon icon={faKey} className="me-2" /> Se requiere autorización</Alert.Heading>
@@ -173,35 +227,34 @@ function ArchivoPDF() {
                         <Button variant="warning" onClick={redirectToAuth}>Autorizar con Google</Button>
                     </Alert>
                 )}
+
                 {processStatus.status === 'info' && (
                     <Alert variant="info">
                         <p>{processStatus.message}</p>
                         <Button variant="info" onClick={retryUpload}>
-                            <FontAwesomeIcon icon={faSyncAlt} className="me-2" />
-                            Reintentar Subida
+                            <FontAwesomeIcon icon={faSyncAlt} className="me-2" /> Reintentar Subida
                         </Button>
                     </Alert>
                 )}
+
                 {processStatus.status === 'error' && (
                     <Alert variant="danger">
                         <FontAwesomeIcon icon={faExclamationTriangle} className="me-2" /> {processStatus.message}
                     </Alert>
                 )}
 
-                <Button variant="secondary" onClick={() => navigate('/')}>
+                <Button variant="secondary" onClick={() => navigate('/')} disabled={isProcessing}>
                     <FontAwesomeIcon icon={faArrowLeft} className="me-2" /> Crear Otro Informe
                 </Button>
             </div>
 
-            {/* --- INICIO DE LA PLANTILLA VISUAL RESTAURADA --- */}
+            {/* --- PARTE 2: VISTA PREVIA DEL INFORME (RESPONSIVA) --- */}
             <div
                 ref={reportTemplateRef}
+                className="bg-white p-4 shadow w-100"
                 style={{
-                    width: '800px', // Ancho fijo para consistencia del PDF
+                    maxWidth: '800px',
                     margin: '0 auto',
-                    backgroundColor: 'white',
-                    padding: '30px',
-                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
                     fontFamily: 'Arial, sans-serif',
                     textAlign: 'left',
                 }}
@@ -220,37 +273,50 @@ function ArchivoPDF() {
                     Gerencia General
                 </div>
 
-                {/* Detalles del Incidente */}
+                {/* --- ¡SECCIÓN CORREGIDA CON FLEXBOX! --- */}
                 <div style={{ marginBottom: '20px' }}>
                     <div style={{ fontWeight: 'bold', marginTop: '15px' }}>
                         Fecha: {reportData.fecha}
                     </div>
-                    <div style={{ marginBottom: '8px', marginTop: '15px' }}>
-                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Lugar del evento:</span>
-                        {reportData.lugar}
+
+                    {/* CAMBIO: de 'inline-block' a 'flex' */}
+                    <div style={{ display: 'flex', marginBottom: '8px', marginTop: '15px' }}>
+                        <span style={{ fontWeight: 'bold', width: '180px', flexShrink: 0 }}>Lugar del evento:</span>
+                        <span>{reportData.lugar}</span>
                     </div>
-                    <div style={{ marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Oficiales en servicio:</span>
-                        {reportData.oficiales}
+
+                    {/* CAMBIO: de 'inline-block' a 'flex' */}
+                    <div style={{ display: 'flex', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', width: '180px', flexShrink: 0 }}>Oficiales en servicio:</span>
+                        <span>{reportData.oficiales}</span>
                     </div>
-                    <div style={{ marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Tipo de incidente:</span>
-                        {reportData.tipoIncidente}
+
+                    {/* CAMBIO: de 'inline-block' a 'flex' */}
+                    <div style={{ display: 'flex', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', width: '180px', flexShrink: 0 }}>Tipo de incidente:</span>
+                        <span>{reportData.tipoIncidente}</span>
                     </div>
-                    <div style={{ marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Datos del o los afectado:</span>
-                        {reportData.afectado}
+
+                    {/* CAMBIO: de 'inline-block' a 'flex' */}
+                    <div style={{ display: 'flex', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', width: '180px', flexShrink: 0 }}>Datos del o los afectado:</span>
+                        <span>{reportData.afectado}</span>
                     </div>
-                    <div style={{ marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Número de Cámara:</span>
-                        {reportData.numeroCamara || 'N/A'}
+
+                    {/* CAMBIO: de 'inline-block' a 'flex' */}
+                    <div style={{ display: 'flex', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', width: '180px', flexShrink: 0 }}>Número de Cámara:</span>
+                        <span>{reportData.numeroCamara || 'N/A'}</span>
                     </div>
-                    <div style={{ marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 'bold', display: 'inline-block', width: '180px' }}>Contacto Seleccionado:</span>
-                        {/* Usamos la propiedad 'Display' para el texto amigable */}
-                        {reportData.contactoSeleccionadoDisplay || 'N/A'}
+
+                    {/* CAMBIO: de 'inline-block' a 'flex' */}
+                    <div style={{ display: 'flex', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', width: '180px', flexShrink: 0 }}>Contacto Seleccionado:</span>
+                        <span>{reportData.contactoSeleccionadoDisplay || 'N/A'}</span>
                     </div>
                 </div>
+                {/* --- FIN DE LA SECCIÓN CORREGIDA --- */}
+
 
                 {/* Narración */}
                 <div style={{ marginTop: '20px', lineHeight: '1.5' }}>
@@ -285,6 +351,7 @@ function ArchivoPDF() {
                     Email: sirymcr@gmail.com<br />
                     Dirección: Limón Urbanización Los Cocos
                 </div>
+
             </div>
             {/* --- FIN DE LA PLANTILLA --- */}
         </Container>
