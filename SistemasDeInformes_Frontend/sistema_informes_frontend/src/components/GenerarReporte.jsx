@@ -1,16 +1,18 @@
 // src/components/GenerarReporte.jsx
-// AÑADIDO EL BOTÓN DE CERRAR SESIÓN
+// --- VALIDACIÓN DE CAMPOS OBLIGATORIOS ---
+// --- LÓGICA DE CARGA DE DATOS CORREGIDA ---
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Form, Button, Card, Row, Col, Image, Spinner } from 'react-bootstrap';
+import { Container, Form, Button, Card, Row, Col, Image, Spinner, Alert } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// --- 1. AÑADIMOS EL ÍCONO 'faSignOutAlt' (Cerrar Sesión) ---
-import { faFileAlt, faPaperPlane, faAddressBook, faVideo, faUserCheck, faUsers, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import {
+    faFileAlt, faPaperPlane, faAddressBook, faVideo, faUserCheck, faUsers, faSignOutAlt, faExclamationTriangle
+} from '@fortawesome/free-solid-svg-icons';
 
+// --- IMPORTACIONES REALES RESTAURADAS ---
 import contactService from '../services/contactService.js';
 import userService from '../services/userService.js';
-// --- 2. IMPORTAMOS EL SERVICIO DE AUTENTICACIÓN ---
 import authService from '../services/authService.js';
 
 function GenerarReporte() {
@@ -26,14 +28,19 @@ function GenerarReporte() {
         contactoSeleccionado: ''
     });
 
+    // ¡La clave está aquí! El estado inicial es un ARREGLO VACÍO.
     const [activeContacts, setActiveContacts] = useState([]);
     const [loadingContacts, setLoadingContacts] = useState(true);
     const [anexoUrl, setAnexoUrl] = useState(null);
+
+    const [validated, setValidated] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         const loadInitialData = async () => {
             setLoadingContacts(true);
             try {
+                // --- CÓDIGO REAL RESTAURADO ---
                 const [profileResponse, contactsResponse] = await Promise.all([
                     userService.getSelfProfile(),
                     contactService.getAllContacts()
@@ -46,7 +53,12 @@ function GenerarReporte() {
 
                 setFormData(prevData => ({ ...prevData, oficiales: userName }));
 
-                const contactsData = contactsResponse.data.results || contactsResponse.data;
+                // --- ¡CORRECCIÓN DE ERROR "is not a function"! ---
+                // Esta lógica se asegura de que 'contactsData' sea SIEMPRE un arreglo,
+                // previniendo el crash de .map()
+                const contactsData = contactsResponse.data.results ||
+                    (Array.isArray(contactsResponse.data) ? contactsResponse.data : []);
+
                 setActiveContacts(contactsData);
 
             } catch (error) {
@@ -89,7 +101,26 @@ function GenerarReporte() {
         }
     }, []);
 
-    const handlePreview = () => {
+    const handlePreview = (e) => {
+        const form = e.currentTarget;
+
+        e.preventDefault();
+        setError('');
+
+        if (form.checkValidity() === false || formData.contactoSeleccionado === "") {
+            e.stopPropagation();
+            setValidated(true);
+
+            if (formData.contactoSeleccionado === "") {
+                setError('Por favor, seleccione un contacto.');
+            } else {
+                setError('Por favor, complete todos los campos obligatorios marcados con *');
+            }
+            return;
+        }
+
+        setValidated(true);
+
         const selectedContactObject = activeContacts.find(c => c.IdContacto.toString() === formData.contactoSeleccionado);
         const contactDisplayText = selectedContactObject
             ? `${selectedContactObject.Nombre} (${selectedContactObject.Telefono})`
@@ -110,15 +141,13 @@ function GenerarReporte() {
         navigate('/archivo-pdf', { state: { reportData } });
     };
 
-    // --- 3. NUEVA FUNCIÓN PARA MANEJAR EL LOGOUT ---
     const handleLogout = () => {
-        authService.logout(); // Borra el token del localStorage
-        navigate('/login'); // Redirige al login
+        authService.logout();
+        navigate('/login');
     };
 
     return (
         <Container className="mt-5">
-            {/* --- 4. BOTONES DE GESTIÓN ACTUALIZADOS --- */}
             <div className="d-flex justify-content-end mb-3 gap-2">
                 <Button variant="outline-dark" onClick={() => navigate('/users')}>
                     <FontAwesomeIcon icon={faUsers} className="me-2" />
@@ -128,7 +157,6 @@ function GenerarReporte() {
                     <FontAwesomeIcon icon={faAddressBook} className="me-2" />
                     Gestionar Contactos
                 </Button>
-                {/* --- BOTÓN DE CERRAR SESIÓN AÑADIDO --- */}
                 <Button variant="outline-danger" onClick={handleLogout}>
                     <FontAwesomeIcon icon={faSignOutAlt} className="me-2" />
                     Cerrar Sesión
@@ -141,14 +169,29 @@ function GenerarReporte() {
                         <FontAwesomeIcon icon={faFileAlt} className="me-2" />
                         Generar Nuevo Informe de Incidente
                     </Card.Title>
-                    <Form>
+
+                    <Form noValidate validated={validated} onSubmit={handlePreview}>
+
+                        {error && (
+                            <Alert variant="danger" onClose={() => setError('')} dismissible>
+                                <FontAwesomeIcon icon={faExclamationTriangle} className="me-2" />
+                                {error}
+                            </Alert>
+                        )}
+
                         <Row>
                             <Col md={6} className="mb-3">
-                                <Form.Group><Form.Label htmlFor="lugar">Lugar del evento</Form.Label><Form.Control type="text" id="lugar" value={formData.lugar} onChange={handleInputChange} required /></Form.Group>
+                                <Form.Group>
+                                    <Form.Label htmlFor="lugar">Lugar del evento *</Form.Label>
+                                    <Form.Control type="text" id="lugar" value={formData.lugar} onChange={handleInputChange} required />
+                                    <Form.Control.Feedback type="invalid">
+                                        El lugar es obligatorio.
+                                    </Form.Control.Feedback>
+                                </Form.Group>
                             </Col>
                             <Col md={6} className="mb-3">
                                 <Form.Group>
-                                    <Form.Label htmlFor="oficiales">Oficiales en servicio</Form.Label>
+                                    <Form.Label htmlFor="oficiales">Oficiales en servicio *</Form.Label>
                                     <Form.Control
                                         type="text"
                                         id="oficiales"
@@ -163,25 +206,47 @@ function GenerarReporte() {
                         </Row>
                         <Row>
                             <Col md={6} className="mb-3">
-                                <Form.Group><Form.Label htmlFor="tipoIncidente">Tipo de incidente</Form.Label><Form.Control type="text" id="tipoIncidente" value={formData.tipoIncidente} onChange={handleInputChange} required /></Form.Group>
+                                <Form.Group>
+                                    <Form.Label htmlFor="tipoIncidente">Tipo de incidente *</Form.Label>
+                                    <Form.Control type="text" id="tipoIncidente" value={formData.tipoIncidente} onChange={handleInputChange} required />
+                                    <Form.Control.Feedback type="invalid">
+                                        El tipo de incidente es obligatorio.
+                                    </Form.Control.Feedback>
+                                </Form.Group>
                             </Col>
                             <Col md={6} className="mb-3">
-                                <Form.Group><Form.Label htmlFor="afectado">Datos del o los afectado(s)</Form.Label><Form.Control type="text" id="afectado" value={formData.afectado} onChange={handleInputChange} required /></Form.Group>
+                                <Form.Group>
+                                    <Form.Label htmlFor="afectado">Datos del o los afectado(s) *</Form.Label>
+                                    <Form.Control type="text" id="afectado" value={formData.afectado} onChange={handleInputChange} required />
+                                    <Form.Control.Feedback type="invalid">
+                                        Los datos del afectado son obligatorios.
+                                    </Form.Control.Feedback>
+                                </Form.Group>
                             </Col>
                         </Row>
                         <Row>
                             <Col md={6} className="mb-3">
                                 <Form.Group>
-                                    <Form.Label htmlFor="numeroCamara"><FontAwesomeIcon icon={faVideo} className="me-2" />Número de Cámara</Form.Label>
-                                    <Form.Control type="text" id="numeroCamara" value={formData.numeroCamara} onChange={handleInputChange} />
+                                    <Form.Label htmlFor="numeroCamara"><FontAwesomeIcon icon={faVideo} className="me-2" />Número de Cámara *</Form.Label>
+                                    <Form.Control type="text" id="numeroCamara" value={formData.numeroCamara} onChange={handleInputChange} required />
+                                    <Form.Control.Feedback type="invalid">
+                                        El número de cámara es obligatorio.
+                                    </Form.Control.Feedback>
                                 </Form.Group>
                             </Col>
                             <Col md={6} className="mb-3">
                                 <Form.Group>
-                                    <Form.Label htmlFor="contactoSeleccionado"><FontAwesomeIcon icon={faUserCheck} className="me-2" />Seleccionar Contacto Activo</Form.Label>
+                                    <Form.Label htmlFor="contactoSeleccionado"><FontAwesomeIcon icon={faUserCheck} className="me-2" />Seleccionar Contacto Activo *</Form.Label>
                                     {loadingContacts ? <Spinner animation="border" size="sm" /> : (
-                                        <Form.Select id="contactoSeleccionado" value={formData.contactoSeleccionado} onChange={handleInputChange}>
+                                        <Form.Select
+                                            id="contactoSeleccionado"
+                                            value={formData.contactoSeleccionado}
+                                            onChange={handleInputChange}
+                                            required
+                                            isInvalid={validated && formData.contactoSeleccionado === ""}
+                                        >
                                             <option value="">-- Seleccione un contacto --</option>
+                                            {/* Esta línea ahora es segura gracias a la corrección en useEffect */}
                                             {activeContacts.map(contact => (
                                                 <option key={contact.IdContacto} value={contact.IdContacto}>
                                                     {contact.Nombre} ({contact.Telefono})
@@ -189,12 +254,18 @@ function GenerarReporte() {
                                             ))}
                                         </Form.Select>
                                     )}
+                                    <Form.Control.Feedback type="invalid">
+                                        Debe seleccionar un contacto.
+                                    </Form.Control.Feedback>
                                 </Form.Group>
                             </Col>
                         </Row>
                         <Form.Group className="mb-3">
-                            <Form.Label htmlFor="narracion">Narración de Hecho</Form.Label>
+                            <Form.Label htmlFor="narracion">Narración de Hecho *</Form.Label>
                             <Form.Control as="textarea" rows={5} id="narracion" value={formData.narracion} onChange={handleInputChange} required />
+                            <Form.Control.Feedback type="invalid">
+                                La narración es obligatoria.
+                            </Form.Control.Feedback>
                         </Form.Group>
 
                         <Form.Group className="mb-4" onPaste={handlePaste}>
@@ -211,7 +282,7 @@ function GenerarReporte() {
                         )}
 
                         <div className="d-grid">
-                            <Button variant="primary" size="lg" onClick={handlePreview}>
+                            <Button variant="primary" size="lg" type="submit">
                                 <FontAwesomeIcon icon={faPaperPlane} className="me-2" />
                                 Generar Reporte
                             </Button>

@@ -1,13 +1,10 @@
 // src/components/UsersPage.jsx
-// VERSIÓN CORREGIDA
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Form, Button, Table, Alert, Spinner, InputGroup, Modal } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// --- 1. CORRECCIÓN: Se añade 'faArrowLeft' a la lista de importaciones ---
 import { faUsers, faPlus, faSave, faTimes, faEdit, faTrash, faSyncAlt, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-// --- 2. CORRECCIÓN: Se usa una ruta relativa para el servicio ---
 import userService from '../services/userService.js';
 
 function UsersPage() {

@@ -1,11 +1,9 @@
 // src/components/LoginPage.jsx
-// Actualizado con 3 campos en el Modal y respuesta genérica por seguridad.
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Card, Alert, Modal, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// --- AÑADIMOS NUEVOS ÍCONOS ---
 import { faKey, faPaperPlane, faPhone, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import authService from '../services/authService';
 
@@ -49,7 +47,7 @@ function LoginPage() {
         }
     };
 
-    // --- NUEVO HANDLER para los inputs del modal ---
+    // --- Nuevo HANDLER para los inputs del modal ---
     const handleForgotInputChange = (e) => {
         const { id, value } = e.target;
         setForgotData(prevData => ({ ...prevData, [id]: value }));
@@ -78,8 +76,7 @@ function LoginPage() {
 
         } catch (err) {
             // --- LÓGICA DE SEGURIDAD ---
-            // En caso de error (ej. usuario no encontrado), MOSTRAMOS EL MISMO MENSAJE GENÉRICO
-            // para no darle pistas a un atacante.
+            // En caso de error (ej. usuario no encontrado), mostrar el mismo mensaje generico
             setForgotMessage({
                 type: 'success',
                 text: 'Solicitud procesada. Si sus datos son correctos, recibirá un mensaje en breve.'
@@ -92,7 +89,7 @@ function LoginPage() {
             setTimeout(() => {
                 setShowForgotModal(false);
                 setForgotData({ username: '', telefono: '', email: '' });
-                setForgotMessage({ type: '', text: '' }); // Limpia el mensaje al cerrar
+                setForgotMessage({ type: '', text: '' });
             }, 3000);
         }
     };
@@ -113,7 +110,6 @@ function LoginPage() {
                             Inicio de Sesión
                         </Card.Title>
                         <Form onSubmit={handleSubmit}>
-                            {/* ... (Formulario de Login - sin cambios) ... */}
                             {error && <Alert variant="danger">{error}</Alert>}
                             <Form.Group className="mb-3" controlId="username">
                                 <Form.Label>Nombre de Usuario</Form.Label>
